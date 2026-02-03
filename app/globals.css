@@ -1,0 +1,105 @@
+/* Reset básico */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: "Segoe UI", Roboto, Arial, sans-serif;
+  background-color: #f4f6f9;
+  color: #333;
+  line-height: 1.6;
+}
+
+/* Container principal */
+div {
+  max-width: 900px;
+  margin: 40px auto;
+  background: #fff;
+  padding: 30px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+/* Título */
+h1 {
+  font-size: 28px;
+  font-weight: 600;
+  color: #2c3e50;
+  margin-bottom: 25px;
+  text-align: center;
+}
+
+/* Inputs */
+input {
+  display: block;
+  margin: 12px 0;
+  padding: 10px 14px;
+  width: 100%;
+  border: 1px solid #dcdcdc;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: border-color 0.3s;
+}
+
+input:focus {
+  border-color: #0070f3;
+  outline: none;
+}
+
+/* Botões */
+button {
+  margin: 8px 5px 8px 0;
+  padding: 10px 18px;
+  background-color: #0070f3;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.3s, transform 0.1s;
+}
+
+button:hover {
+  background-color: #005bb5;
+  transform: translateY(-2px);
+}
+
+button:active {
+  transform: translateY(0);
+}
+
+/* Card de aluno */
+.aluno-card {
+  background: #fafafa;
+  border: 1px solid #e0e0e0;
+  padding: 15px;
+  margin: 15px 0;
+  border-radius: 8px;
+  transition: box-shadow 0.3s;
+}
+
+.aluno-card:hover {
+  box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+}
+
+.aluno-card p {
+  margin: 6px 0;
+  font-size: 15px;
+}
+
+.aluno-card img {
+  margin-top: 10px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+}
+
+/* Webcam */
+video {
+  border-radius: 8px;
+  border: 2px solid #0070f3;
+  margin: 15px 0;
+  width: 100%;
+  max-width: 400px;
+}
