@@ -20,9 +20,9 @@ export interface Aluno {
   // Socioeconômico
   identidadeRacial: "Preto" | "Pardo" | "Branco" | "Indígena" | "Amarelo" | "";
   identidadeGenero: string;
-  areaRiscoAmbiental: "Sim" | "Não" | "";
-  areaRiscoSeguranca: "Sim" | "Não" | "";
-  tipoMoradia: "Própria" | "Alugada" | "Cedida" | "Posse" | "Ocupação" | "";
+  areaRiscoAmbiental: string;
+  areaRiscoSeguranca: string;
+  tipoMoradia: string
   quantidadeMoradores: number;
   concluiuEnsinoMedio: "Sim" | "Não" | "";
   instituicaoEnsinoMedio?: string;

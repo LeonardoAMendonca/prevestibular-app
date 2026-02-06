@@ -69,97 +69,82 @@ export async function renderizarLadoNoPdf(
       } catch (e) {}
     }
 
-// 2. FOTO COM RECORTE ELÍPTICO (Oval)
+    // 2. FOTO COM RECORTE CIRCULAR (CLIPPING MASK)
     if (aluno.foto) {
       try {
+        // Tratamento do base64
         const base64Data = aluno.foto.includes(',') ? aluno.foto.split(',')[1] : aluno.foto;
         const fBytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
         const fImg = await pdfDoc.embedPng(fBytes).catch(() => pdfDoc.embedJpg(fBytes));
         
-        // --- CONFIGURAÇÕES DE TAMANHO ---
-        const fHeight = cmToPts(3.37); // Altura total (igual ao original)
-        const fatorLargura = 0.75;     // <--- ALTERE AQUI (1.0 = Círculo, 0.75 = Oval mais estreito)
-        const fWidth = fHeight * fatorLargura;
+        // Definições de tamanho e posição (3.37cm)
+        const fSize = cmToPts(3.37); 
+        const photoX = x + cmToPts(0.5);
+        const photoY = y + cardHeight - cmToPts(1.0) - fSize;
 
-        // Posição (Centralizando horizontalmente na área original)
-        // O original era: x + cmToPts(0.5). Vamos manter o centro alinhado.
-        const centroOriginalX = x + cmToPts(0.5) + (fHeight / 2);
-        const photoY = y + cardHeight - cmToPts(1.0) - fHeight;
-        
-        const cy = photoY + (fHeight / 2); // Centro Y
-        const cx = centroOriginalX;        // Centro X
+        // Cálculos matemáticos para o círculo (Curvas de Bézier)
+        const r = fSize / 2;       // Raio
+        const cx = photoX + r;     // Centro X
+        const cy = photoY + r;     // Centro Y
+        const k = 0.5522847498;    // Constante "Kappa" para aproximar círculo perfeito
+        const cd = r * k;          // Distância de controle
 
-        const ry = fHeight / 2; // Raio Vertical
-        const rx = fWidth / 2;  // Raio Horizontal (Controla a largura)
-
-        const k = 0.5522847498; // Constante Kappa
-        const cdX = rx * k;     // Distância de controle Horizontal
-        const cdY = ry * k;     // Distância de controle Vertical
-
-        // A. Fundo Branco (Agora Elíptico)
+        // A. Fundo Branco (para garantir limpeza atrás da foto)
         page.drawEllipse({
-            x: cx, y: cy, 
-            xScale: rx, yScale: ry, // Raios diferentes
+            x: cx, y: cy, xScale: r, yScale: r,
             color: rgb(1, 1, 1),
         });
 
         // B. Inicia o Recorte
         page.pushOperators(pushGraphicsState());
 
-        // Constrói a Elipse manualmente
+        // Constrói o caminho do círculo manualmente usando appendBezierCurve
+        // A ordem é: moveTo(inicio) -> 4 curvas -> closePath -> clip -> endPath
         page.pushOperators(
-          moveTo(cx + rx, cy), // Ponto inicial (Direita)
+          moveTo(cx + r, cy), // Começa na direita (0 graus)
 
-          // Q1: Direita -> Topo
-          appendBezierCurve(cx + rx, cy + cdY, cx + cdX, cy + ry, cx, cy + ry),
+          // Quadrante 1: Direita -> Topo
+          appendBezierCurve(cx + r, cy + cd, cx + cd, cy + r, cx, cy + r),
           
-          // Q2: Topo -> Esquerda
-          appendBezierCurve(cx - cdX, cy + ry, cx - rx, cy + cdY, cx - rx, cy),
+          // Quadrante 2: Topo -> Esquerda
+          appendBezierCurve(cx - cd, cy + r, cx - r, cy + cd, cx - r, cy),
           
-          // Q3: Esquerda -> Baixo
-          appendBezierCurve(cx - rx, cy - cdY, cx - cdX, cy - ry, cx, cy - ry),
+          // Quadrante 3: Esquerda -> Baixo
+          appendBezierCurve(cx - r, cy - cd, cx - cd, cy - r, cx, cy - r),
           
-          // Q4: Baixo -> Direita
-          appendBezierCurve(cx + cdX, cy - ry, cx + rx, cy - cdY, cx + rx, cy),
+          // Quadrante 4: Baixo -> Direita
+          appendBezierCurve(cx + cd, cy - r, cx + r, cy - cd, cx + r, cy),
 
           closePath(), 
-          clip(),    
+          clip(),    // Transforma o caminho desenhado acima em máscara
           endPath()  
         );
 
-        // C. Lógica "Cover" (Ajustada para preencher a elipse)
-        // Usamos fHeight como base para garantir que cubra a altura
+        // C. Lógica "Cover" (Preencher o círculo sem distorcer a imagem)
         const imgDims = fImg.scale(1);
         const imgRatio = imgDims.width / imgDims.height;
         
-        let drawW, drawH, drawX, drawY;
+        let drawW = fSize;
+        let drawH = fSize;
+        let drawX = photoX;
+        let drawY = photoY;
 
-        // Lógica simplificada: Queremos que a imagem cubra o retângulo (fWidth x fHeight)
-        // Mas para garantir cobertura total na elipse, focamos na maior dimensão ou no ratio
-        const boxRatio = fWidth / fHeight;
-
-        if (imgRatio > boxRatio) { 
-             // Imagem mais larga que a elipse -> Ajusta pela altura
-             drawH = fHeight;
-             drawW = fHeight * imgRatio;
-             drawX = cx - (drawW / 2);
-             drawY = cy - (drawH / 2);
+        if (imgRatio > 1) { 
+             // Foto mais larga que alta (Landscape)
+             drawH = fSize;
+             drawW = fSize * imgRatio;
+             drawX = photoX - (drawW - fSize) / 2; // Centraliza horizontalmente
         } else { 
-             // Imagem mais alta/estreita que a elipse -> Ajusta pela largura
-             drawW = fWidth;
-             drawH = fWidth / imgRatio;
-             // Se mesmo ajustando pela largura, a altura ficar menor que a necessária (raro em elipse vertical), forçamos altura
-             if (drawH < fHeight) {
-                drawH = fHeight;
-                drawW = fHeight * imgRatio;
-             }
-             drawX = cx - (drawW / 2);
-             drawY = cy - (drawH / 2);
+             // Foto mais alta que larga (Portrait)
+             drawW = fSize;
+             drawH = fSize / imgRatio;
+             drawY = photoY - (drawH - fSize) / 2; // Centraliza verticalmente
         }
 
+        // Desenha a imagem (será cortada pelo clip)
         page.drawImage(fImg, { x: drawX, y: drawY, width: drawW, height: drawH });
 
-        // D. Restaura estado
+        // D. Restaura estado (Remove o recorte para os próximos elementos)
         page.pushOperators(popGraphicsState());
 
       } catch (e) { console.error("Erro foto", e); }
@@ -169,7 +154,7 @@ export async function renderizarLadoNoPdf(
     const nomeOriginal = (aluno.nome || "").toUpperCase();
     const nomeX = x + inchToPts(1.688);
     const maxW = (x + cardWidth) - nomeX - inchToPts(0.177);
-    let nSize = 8;
+    let nSize = 5;
     let nLines: string[] = [nomeOriginal];
 
     while (nSize > 2) {
@@ -194,60 +179,70 @@ export async function renderizarLadoNoPdf(
       });
     });
 
-// 4. DADOS FINAIS (Posições Ajustadas para Nome de 2 Linhas)
+    // ... (Código anterior: Logos, Foto, Nome) ...
+
+    // 4. DADOS FINAIS (Alterado: Contato e Validade)
     
     // --- LÓGICA DO CONTATO ---
+    // Prioriza o telefone do responsável se o aluno não for o próprio responsável
     let zapFinal = aluno.telefoneWhatsapp || "";
     if (aluno.alunoEProprioResponsavel === "Não" && aluno.telefoneResponsavel) {
         zapFinal = aluno.telefoneResponsavel;
     }
 
     // --- LÓGICA DA VALIDADE ---
-    let anoValidade = new Date().getFullYear().toString();
+    // Pega o ano da data de criação e define como 31/12 daquele ano
+    let anoValidade = new Date().getFullYear().toString(); // Fallback: Ano atual
+    
     if (aluno.dataCriacao) {
+        // Tenta extrair o ano da string (suporta DD/MM/YYYY ou YYYY-MM-DD)
         const partes = aluno.dataCriacao.includes('/') 
             ? aluno.dataCriacao.split('/') 
             : aluno.dataCriacao.split('-');
+            
+        // Se a string tem 4 dígitos, assumimos que é o ano
         const parteAno = partes.find(p => p.length === 4);
         if (parteAno) anoValidade = parteAno;
     }
     const validadeFinal = `31/12/${anoValidade}`;
 
-    // --- DESENHAR CONTATO ---
-    // AJUSTE: Alterado de 0.977 para 1.15 (Desceu para dar espaço ao nome duplo)
-    const yContato = y + cardHeight - inchToPts(1.15); 
+    // --- DESENHAR CONTATO (Posição Superior) ---
+    // Onde antes ficava o nascimento
+    const yContato = y + cardHeight - inchToPts(0.977);
     
     page.drawText("CONTATO:", { 
         x: x + inchToPts(1.690), 
         y: yContato, 
-        size: 5, 
+        size: 4, // Rótulo menor
         font: fontBold, 
         color: colorText 
     });
     
     page.drawText(zapFinal, { 
         x: x + inchToPts(1.690), 
-        y: yContato - 8, 
-        size: 7, 
+        y: yContato - 6, // Valor logo abaixo
+        size: 5, 
+        font: fontBold, 
         color: colorText 
     });
 
-    // --- DESENHAR VALIDADE ---
-    // AJUSTE: Alterado de 1.316 para 1.50 (Desceu proporcionalmente)
-    const yValidade = y + cardHeight - inchToPts(1.50);
+    // --- DESENHAR VALIDADE (Posição Inferior) ---
+    // Onde antes ficava o telefone
+    const yValidade = y + cardHeight - inchToPts(1.316);
 
     page.drawText("VALIDADE:", { 
         x: x + inchToPts(1.688), 
         y: yValidade, 
-        size: 5, 
+        size: 4, // Rótulo menor
         font: fontBold, 
         color: colorText 
     });
 
     page.drawText(validadeFinal, { 
         x: x + inchToPts(1.688), 
-        y: yValidade - 8,
-        size: 7, 
+        y: yValidade - 6, // Valor logo abaixo
+        size: 5, 
+        font: fontBold, 
         color: colorText 
     });
   }
@@ -280,93 +275,4 @@ export async function gerarPdfLote(alunos: Aluno[]) {
   }
   const pdfBytes = await pdfDoc.save();
   return new Blob([pdfBytes as any], { type: "application/pdf" });
-}
-
-// === NOVA FUNÇÃO: FICHA CADASTRAL A4 ===
-export async function gerarFichaMatricula(aluno: Aluno) {
-  const pdfDoc = await PDFDocument.create();
-  const page = pdfDoc.addPage(PageSizes.A4);
-  const { width, height } = page.getSize();
-  const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
-  const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-
-  let y = height - 50;
-  const margin = 50;
-  const lineHeight = 18;
-
-  // Título
-  page.drawText('FICHA DE MATRÍCULA', { x: margin, y, size: 18, font: fontBold });
-  y -= 30;
-
-  // Foto no topo à direita
-  if (aluno.foto) {
-    try {
-        const base64Data = aluno.foto.includes(',') ? aluno.foto.split(',')[1] : aluno.foto;
-        const fBytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
-        const fImg = await pdfDoc.embedPng(fBytes).catch(() => pdfDoc.embedJpg(fBytes));
-        page.drawImage(fImg, { x: width - 150, y: height - 160, width: 100, height: 110 });
-    } catch(e) {}
-  }
-
-  // Função Auxiliar para escrever linhas
-  const drawField = (label: string, value: string) => {
-    page.drawText(`${label}:`, { x: margin, y, size: 10, font: fontBold });
-    page.drawText(value || "-", { x: margin + 140, y, size: 10, font: fontRegular });
-    y -= lineHeight;
-  };
-
-  const drawSection = (title: string) => {
-    y -= 10;
-    page.drawRectangle({ x: margin, y: y - 5, width: width - (margin*2), height: 20, color: rgb(0.9, 0.9, 0.9) });
-    page.drawText(title, { x: margin + 5, y, size: 11, font: fontBold });
-    y -= 25;
-  };
-
-  // Metadados
-  page.drawText(`Data de Cadastro: ${aluno.dataCriacao}`, { x: margin, y, size: 8, font: fontRegular, color: rgb(0.5, 0.5, 0.5) });
-  y -= 20;
-
-  drawSection("DADOS PESSOAIS");
-  drawField("Nome Completo", aluno.nome);
-  drawField("CPF", aluno.cpf);
-  drawField("Data de Nascimento", aluno.dataNascimento.split('-').reverse().join('/'));
-  drawField("WhatsApp", aluno.telefoneWhatsapp);
-  drawField("Tel. Secundário", aluno.telefoneSecundario);
-  drawField("Possui Filhos", aluno.possuiFilhos);
-
-  drawSection("ENDEREÇO");
-  drawField("CEP", aluno.cep);
-  drawField("Logradouro", `${aluno.endereco}, ${aluno.numero}`);
-  drawField("Bairro", aluno.bairro);
-  drawField("Cidade/UF", `${aluno.cidade} - ${aluno.estado}`);
-  
-  drawSection("DADOS SOCIOECONÔMICOS");
-  drawField("Identidade Racial", aluno.identidadeRacial);
-  drawField("Identidade de Gênero", aluno.identidadeGenero);
-  drawField("Risco Ambiental", aluno.areaRiscoAmbiental);
-  drawField("Risco Segurança", aluno.areaRiscoSeguranca);
-  drawField("Tipo de Moradia", aluno.tipoMoradia);
-  drawField("Qtd. Moradores", aluno.quantidadeMoradores.toString());
-  drawField("Ensino Médio", aluno.concluiuEnsinoMedio === "Sim" ? "Concluído" : "Não Concluído");
-  if(aluno.concluiuEnsinoMedio === "Sim") {
-      drawField("Instituição", aluno.instituicaoEnsinoMedio);
-      drawField("Ano Conclusão", aluno.anoConclusaoEnsinoMedio);
-  }
-
-  drawSection("SAÚDE");
-  drawField("Tipo Sanguíneo", aluno.tipoSanguineo);
-
-  // Rodapé
-  page.drawText("Declaro que as informações acima são verdadeiras.", { 
-      x: margin, y: 50, size: 8, font: fontRegular, color: rgb(0.4, 0.4, 0.4) 
-  });
-  page.drawLine({
-      start: { x: margin, y: 80 }, end: { x: width - margin, y: 80 }, thickness: 1, color: rgb(0,0,0)
-  });
-  page.drawText("Assinatura do Aluno / Responsável", { 
-    x: margin, y: 65, size: 8, font: fontRegular 
-  });
-
-  const pdfBytes = await pdfDoc.save();
-  return pdfBytes;
 }
