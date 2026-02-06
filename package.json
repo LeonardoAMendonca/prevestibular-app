@@ -9,13 +9,15 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "docx": "^9.5.1",
     "file-saver": "^2.0.5",
     "jszip": "^3.10.1",
     "next": "16.1.6",
     "pdf-lib": "^1.17.1",
     "react": "19.2.3",
     "react-dom": "19.2.3",
-    "react-webcam": "^7.2.0"
+    "react-webcam": "^7.2.0",
+    "sweetalert2": "^11.26.18"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

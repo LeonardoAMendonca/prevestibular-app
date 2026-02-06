@@ -1,45 +1,58 @@
-export type Aluno = {
+export interface Aluno {
   // Dados Pessoais
-  dataCriacao: string;
+  id?: string;
   nome: string;
-  dataNascimento: string;
   telefoneWhatsapp: string;
   telefoneSecundario?: string;
+  dataNascimento: string;
+  cpf: string;
+  possuiFilhos: "Sim" | "Não" | "";
+  
+  // Endereço
   cep: string;
   endereco: string;
   numero: string;
+  complemento?: string;
   bairro: string;
   cidade: string;
   estado: string;
-  cpf: string;
-  possuiFilhos: "Sim" | "Não";
 
-  // Dados Socioeconômicos
-  identidadeRacial: "Preto" | "Pardo" | "Branco" | "Indígena" | "Amarelo";
-  identidadeGenero: string; 
-  areaRiscoAmbiental: "Sim" | "Não";
-  areaRiscoSeguranca: "Sim" | "Não";
-  tipoMoradia: "Própria" | "Alugada" | "Cedida" | "Posse" | "Ocupação" | "Outro";
-  tratamentoEsgoto: "Sim" | "Não";
+  // Socioeconômico
+  identidadeRacial: "Preto" | "Pardo" | "Branco" | "Indígena" | "Amarelo" | "";
+  identidadeGenero: string;
+  areaRiscoAmbiental: "Sim" | "Não" | "";
+  areaRiscoSeguranca: "Sim" | "Não" | "";
+  tipoMoradia: "Própria" | "Alugada" | "Cedida" | "Posse" | "Ocupação" | "";
   quantidadeMoradores: number;
-  rendaFamiliar: string;
-  tipoEscola: "Pública" | "Privada";
-  concluiuEnsinoMedio: "Sim" | "Não";
+  concluiuEnsinoMedio: "Sim" | "Não" | "";
   instituicaoEnsinoMedio?: string;
   anoConclusaoEnsinoMedio?: string;
 
-  // Dados de Saúde
+  // Saúdez
   tipoSanguineo: string;
-  pcd: "Sim" | "Não";
-  pcdDescricao?: string;
-  medicamentoRegular: "Sim" | "Não";
-  medicamentoDescricao?: string;
-  doencaCronica: "Sim" | "Não";
-  doencaDescricao?: string;
-  contatoEmergencia1: { nome: string; telefone: string };
-  contatoEmergencia2: { nome: string; telefone: string };
+  temAlergia: "Sim" | "Não" | "";
+  qualAlergia?: string;
+  temDoencaCronica: "Sim" | "Não" | "";
+  qualDoencaCronica?: string;
+  usaMedicacao: "Sim" | "Não" | "";
+  qualMedicacao?: string;
 
-  // Arquivos e Foto
-  documentos: File[];
   foto: string | null;
-};
+  documentos?: File[];
+  dataCriacao?: string;
+
+  // Responsável
+  alunoEProprioResponsavel?: "Sim" | "Não" | "";
+  nomeResponsavel?: string;
+  parentescoResponsavel?: string;
+  cpfResponsavel?: string;
+  telefoneResponsavel?: string;
+  responsavelMoraComAluno?: "Sim" | "Não" | "";
+  cepResponsavel?: string;
+  enderecoResponsavel?: string;
+  numeroResponsavel?: string;
+  complementoResponsavel?: string;
+  bairroResponsavel?: string;
+  cidadeResponsavel?: string;
+  estadoResponsavel?: string;
+}
