@@ -15,18 +15,49 @@ import ListaAlunos from "@/components/ListaAlunos";
 
 // --- INTERFACE ESTENDIDA ---
 interface AlunoEstendido extends Aluno {
+  // Pessoais Extras
+  rg?: string;
   email?: string;
+  
+  // Dados do Responsável
+  nomeResponsavel?: string;
+  parentescoResponsavel?: string;
+  cpfResponsavel?: string;
+  telefoneResponsavel?: string;
+  responsavelMoraComAluno?: "Sim" | "Não" | "";
+  cepResponsavel?: string;
+  enderecoResponsavel?: string;
+  numeroResponsavel?: string;
+
+  // Socioeconômico / Escolaridade
   dispositivosEstudo?: string;
   acessoInternet?: string;
   trabalha?: "Sim" | "Não" | "";
   cargaHorariaTrabalho?: string;
   rendaFamiliar?: string;
   rendaPerCapita?: string;
+  
+  // Escolaridade Detalhada
+  escolaPublica?: "Sim" | "Não" | "";
+  serieAtual?: string;
+  instituicaoEnsinoMedio?: string;
+  anoConclusaoEnsinoMedio?: string;
+  
+  // Saúde
+  qualAlergia?: string;
+  qualDoencaCronica?: string;
+  qualMedicacao?: string;
+
+  // Admin
   observacoesInternas?: string;
   documentosConferidos?: boolean;
   operadorResponsavel?: string;
   dataCadastro?: string;
+  
+  // Arquivos extras (Para download na sessão)
+  documentosAnexos?: File[]; 
 }
+
 
 const INITIAL_FORM_STATE: Partial<AlunoEstendido> = {
   nome: "", telefoneWhatsapp: "", telefoneSecundario: "", email: "", dataNascimento: "", cpf: "",
@@ -95,13 +126,19 @@ export default function Home() {
     const rendaTotal = parseFloat(form.rendaFamiliar?.replace(",", ".") || "0");
     const numPessoas = Number(form.quantidadeMoradores) || 1;
     
-    if (rendaTotal >= 0 && numPessoas > 0) {
-      const perCapita = rendaTotal / numPessoas;
-      setForm(prev => ({
-        ...prev, 
-        rendaPerCapita: perCapita.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-      }));
-    }
+if (form.rendaFamiliar != null) {
+  const rendaTotal = parseInt(form.rendaFamiliar || "0", 10) / 100; // número em reais
+  const numPessoas = Number(form.quantidadeMoradores) || 0;
+
+  if (rendaTotal >= 0 && numPessoas > 0) {
+    const perCapita = rendaTotal / numPessoas;
+    setForm(prev => ({
+      ...prev,
+      rendaPerCapita: perCapita.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    }));
+  }
+}
+
   }, [form.rendaFamiliar, form.quantidadeMoradores]);
 
   // Proteção de saída
@@ -319,11 +356,6 @@ export default function Home() {
               <h3 style={{ fontSize: "1.5rem", color: "var(--accent-orange)" }}>R$ {stats.rendaMedia}</h3>
               <p style={{ color: "#666" }}>Renda Média Per Capita</p>
           </div>
-          {/* Item 3: Alunos que Trabalham */}
-          <div className="card-stat" style={{ background: "white", padding: "20px", borderRadius: "10px", borderLeft: "5px solid #8e44ad", boxShadow: "var(--shadow-sm)" }}>
-              <h3 style={{ fontSize: "2rem", color: "#8e44ad" }}>{stats.trabalhadores}</h3>
-              <p style={{ color: "#666" }}>Trabalham (Risco Evasão)</p>
-          </div>
       </div>
 
       <div style={{ textAlign: 'center', marginBottom: '40px' }}>
@@ -379,12 +411,72 @@ export default function Home() {
         <div className="grid-2">
           <div className="input-block">
             <label>Data Nascimento</label>
-            <input type="date" value={form.dataNascimento || ""} onChange={e => setForm({...form, dataNascimento: e.target.value})} />
+            <input
+  type="text"
+  placeholder="DD/MM/AAAA"
+  inputMode="numeric"
+  value={
+    // se for ISO válido (YYYY-MM-DD) converte para exibição DD/MM/AAAA;
+    // se já for string no formato parcial DD/MM/AAAA, mostra como está
+    typeof form.dataNascimento === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(form.dataNascimento)
+      ? new Date(form.dataNascimento).toLocaleDateString('pt-BR')
+      : (typeof form.dataNascimento === 'string' ? form.dataNascimento : '')
+  }
+  onChange={e => {
+    const raw = e.target.value || '';
+    const digits = raw.replace(/\D/g, '').slice(0,8);
+    let formatted = digits;
+    if (digits.length >= 3) formatted = digits.slice(0,2) + '/' + digits.slice(2);
+    if (digits.length >= 5) formatted = digits.slice(0,2) + '/' + digits.slice(2,4) + '/' + digits.slice(4);
+    let iso = '';
+    if (digits.length === 8) {
+      const dd = digits.slice(0,2);
+      const mm = digits.slice(2,4);
+      const yyyy = digits.slice(4);
+      const date = new Date(`${yyyy}-${mm}-${dd}`);
+      if (!isNaN(date.getTime()) &&
+          date.getFullYear() === Number(yyyy) &&
+          (date.getMonth() + 1) === Number(mm) &&
+          date.getDate() === Number(dd)) {
+        iso = `${yyyy}-${mm}-${dd}`; // string ISO válida
+      } else {
+        iso = ''; // inválida
+      }
+    }
+    // salva ISO quando válida; caso contrário salva a string parcial formatada (DD/MM/AAAA)
+    setForm(prev => ({ ...prev, dataNascimento: iso || formatted }));
+  }}
+/>
+
           </div>
           <div className="input-block">
             <label>CPF</label>
             <input type="text" placeholder="000.000.000-00" value={form.cpf || ""} onChange={e => setForm({...form, cpf: maskCPF(e.target.value)})} />
           </div>
+        </div>
+        
+        <div className="grid-2">
+            <div className="input-block">
+                <label>Identidade de Gênero</label>
+                <select value={form.identidadeGenero || ""} onChange={e => setForm({...form, identidadeGenero: e.target.value})}>
+                    <option value="">Selecione...</option>
+                    <option value="Cisgênero">Cisgênero</option>
+                    <option value="Transgênero">Transgênero</option>
+                    <option value="Não-Binário">Não-Binário</option>
+                    <option value="Prefiro não informar">Prefiro não informar</option>
+                </select>
+            </div>
+            <div className="input-block">
+                <label>Raça/Cor</label>
+                <select value={form.identidadeRacial || ""} onChange={e => setForm({...form, identidadeRacial: e.target.value as any})}>
+                    <option value="">Selecione...</option>
+                    <option value="Branca">Branca</option>
+                    <option value="Preta">Preta</option>
+                    <option value="Parda">Parda</option>
+                    <option value="Amarela">Amarela</option>
+                    <option value="Indígena">Indígena</option>
+                </select>
+            </div>
         </div>
         
         <hr style={{ margin: "25px 0", border: "0", borderTop: "1px solid #eee" }} />
@@ -429,6 +521,7 @@ export default function Home() {
       </section>
 
             {/* --- RESPONSÁVEL LEGAL --- */}
+{/* --- RESPONSÁVEL LEGAL --- */}
       <section className="form-section">
          <h3>Responsável Legal</h3>
          <div className="input-block">
@@ -447,16 +540,16 @@ export default function Home() {
                     <div className="input-block">
                         <label>Parentesco</label>
                         <select value={form.parentescoResponsavel || ""} onChange={e => setForm({...form, parentescoResponsavel: e.target.value})}>
-                            <option value="">Selecione...</option><option value="Mãe">Mãe</option><option value="Pai">Pai</option><option value="Outro">Outro</option>
+                            <option value="">Selecione...</option><option value="Mãe/Pai">Mãe/Pai</option><option value="Avô/Avó">Avô/Avó</option><option value="Tio/Tia">Tio/Tia</option><option value="Padrinho/Madrinha">Padrinho/Madrinha</option><option value="Outro">Outro</option>
                         </select>
                     </div>
                     <div className="input-block">
                         <label>CPF Resp.</label>
-                        <input type="text" value={form.cpfResponsavel || ""} onChange={e => setForm({...form, cpfResponsavel: maskCPF(e.target.value)})} />
+                        <input type="text" placeholder="000.000.000-00" value={form.cpfResponsavel || ""} onChange={e => setForm({...form, cpfResponsavel: maskCPF(e.target.value)})} />
                     </div>
                     <div className="input-block">
                         <label>Tel. Resp.</label>
-                        <input type="text" value={form.telefoneResponsavel || ""} onChange={e => setForm({...form, telefoneResponsavel: maskPhone(e.target.value)})} />
+                        <input type="text" placeholder="(XX) XXXXX-XXXX" value={form.telefoneResponsavel || ""} onChange={e => setForm({...form, telefoneResponsavel: maskPhone(e.target.value)})} />
                     </div>
                 </div>
                 
@@ -471,7 +564,10 @@ export default function Home() {
                   <div style={{ background: "#f8f9fa", padding: "15px", borderRadius: "8px", marginTop: "10px" }}>
                     <h4 style={{marginBottom: "10px"}}>Endereço do Responsável</h4>
                     <div className="grid-3">
-                      <div className="input-block"><label>CEP</label><input type="text" value={form.cepResponsavel || ""} onChange={e => handleCEPResponsavelChange(e.target.value)} /></div>
+                      <div className="input-block">
+                          <label>CEP</label>
+                          <input type="text" placeholder="00.000-000" value={form.cepResponsavel || ""} onChange={e => handleCEPResponsavelChange(e.target.value)} />
+                      </div>
                       <div className="input-block"><label>Endereço</label><input type="text" value={form.enderecoResponsavel || ""} onChange={e => setForm({...form, enderecoResponsavel: e.target.value})} /></div>
                       <div className="input-block"><label>Nº</label><input type="text" value={form.numeroResponsavel || ""} onChange={e => setForm({...form, numeroResponsavel: e.target.value})} /></div>
                     </div>
@@ -481,9 +577,96 @@ export default function Home() {
          )}
       </section>
 
-      {/* --- QUESTIONÁRIO SOCIOECONÔMICO --- */}
+       {/* --- QUESTIONÁRIO SOCIOECONÔMICO & ESCOLARIDADE --- */}
       <section className="form-section">
-        <h3>Questionário Socioeconômico</h3>
+        <h3>Socioeconômico e Escolaridade</h3>
+        
+        <div className="grid-2">
+            <div className="input-block">
+                <label>Possui Filhos?</label>
+                <select value={form.possuiFilhos || ""} onChange={e => setForm({...form, possuiFilhos: e.target.value as any})}>
+                    <option value="">Selecione...</option><option value="Sim">Sim</option><option value="Não">Não</option>
+                </select>
+            </div>
+            <div className="input-block">
+                <label>Tipo de Moradia</label>
+                <select value={form.tipoMoradia || ""} onChange={e => setForm({...form, tipoMoradia: e.target.value})}>
+                    <option value="">Selecione...</option>
+                    <option value="Própria">Própria</option>
+                    <option value="Alugada">Alugada</option>
+                    <option value="Cedida/Favor">Cedida/Favor</option>
+                    <option value="Ocupação">Ocupação</option>
+                </select>
+            </div>
+        </div>
+
+        <div className="grid-2">
+            <div className="input-block">
+                <label>Mora em área de Risco Ambiental?</label>
+                <select value={form.areaRiscoAmbiental || ""} onChange={e => setForm({...form, areaRiscoAmbiental: e.target.value})}>
+                    <option value="">Selecione...</option><option value="Sim">Sim</option><option value="Não">Não</option>
+                </select>
+            </div>
+            <div className="input-block">
+                <label>Mora em área de Risco de Segurança?</label>
+                <select value={form.areaRiscoSeguranca || ""} onChange={e => setForm({...form, areaRiscoSeguranca: e.target.value})}>
+                    <option value="">Selecione...</option><option value="Sim">Sim</option><option value="Não">Não</option>
+                </select>
+            </div>
+        </div>
+
+        <div style={{ background: "#e8f8f5", padding: "15px", borderRadius: "8px", margin: "15px 0", border: "1px solid #d1f2eb" }}>
+            <h4 style={{ marginBottom: "10px", color: "#16a085" }}>🎓 Escolaridade</h4>
+            
+            <div className="input-block">
+                <label>Já concluiu o Ensino Médio?</label>
+                <select 
+                    value={form.concluiuEnsinoMedio || ""} 
+                    onChange={e => setForm({...form, concluiuEnsinoMedio: e.target.value as any})}
+                    style={{ fontWeight: "bold" }}
+                >
+                    <option value="">Selecione...</option>
+                    <option value="Sim">Sim, já concluí</option>
+                    <option value="Não">Não, ainda estou cursando</option>
+                    <option value="Parou">Não, parei de estudar</option>
+                </select>
+            </div>
+
+            {form.concluiuEnsinoMedio === "Sim" && (
+                <div className="grid-2 anime-fade-in">
+                    <div className="input-block">
+                        <label>Instituição de Ensino</label>
+                        <input type="text" placeholder="Nome da Escola" value={form.instituicaoEnsinoMedio || ""} onChange={e => setForm({...form, instituicaoEnsinoMedio: e.target.value})} />
+                    </div>
+                    <div className="input-block">
+                        <label>Ano de Conclusão</label>
+                        <input type="text" placeholder="Ex: 2023" value={form.anoConclusaoEnsinoMedio || ""} onChange={e => setForm({...form, anoConclusaoEnsinoMedio: e.target.value})} />
+                    </div>
+                </div>
+            )}
+
+            {form.concluiuEnsinoMedio === "Não" && (
+                <div className="grid-2 anime-fade-in">
+                    <div className="input-block">
+                        <label>Série Atual</label>
+                        <select value={form.serieAtual || ""} onChange={e => setForm({...form, serieAtual: e.target.value})}>
+                            <option value="">Selecione...</option>
+                            <option value="1º Ano EM">1º Ano Ensino Médio</option>
+                            <option value="2º Ano EM">2º Ano Ensino Médio</option>
+                            <option value="3º Ano EM">3º Ano Ensino Médio</option>
+                            <option value="EJA">EJA</option>
+                        </select>
+                    </div>
+                    <div className="input-block">
+                        <label>Estuda em Escola Pública?</label>
+                        <select value={form.escolaPublica || ""} onChange={e => setForm({...form, escolaPublica: e.target.value as any})}>
+                            <option value="">Selecione...</option><option value="Sim">Sim</option><option value="Não">Não</option>
+                        </select>
+                    </div>
+                </div>
+            )}
+        </div>
+
         <div className="grid-2">
             <div className="input-block">
                 <label>Dispositivo para Estudo</label>
@@ -497,12 +680,16 @@ export default function Home() {
                 </select>
             </div>
             <div className="input-block">
-                <label>Internet em Casa</label>
+                <label>Tipo de internet em Casa</label>
                 <select value={form.acessoInternet || ""} onChange={e => setForm({...form, acessoInternet: e.target.value})}>
                     <option value="">Selecione...</option>
-                    <option value="Wi-Fi Estável">Wi-Fi Estável</option>
-                    <option value="Dados Móveis">Dados Móveis</option>
-                    <option value="Sem Internet">Sem Internet</option>
+                    <option value="Fixa e Móvel - Estável">Ambos estáveis (fixa + móvel)</option>
+                    <option value="Fixa e Móvel - Instável">Ambos instáveis (fixa + móvel)</option>
+                    <option value="Internet fixa estável">Internet fixa estável (ADSL/cabo/fibra)</option>
+                    <option value="Internet fixa instável">Internet fixa instável (ADSL/cabo/fibra)</option>
+                    <option value="Internet móvel estável">Internet móvel estável (celular)</option>
+                    <option value="Internet móvel instável">Internet móvel instável (celular)</option>
+                    <option value="Sem acesso">Não tenho internet em casal</option>
                 </select>
             </div>
         </div>
@@ -529,10 +716,25 @@ export default function Home() {
                     <label>Qtd. Pessoas</label>
                     <input type="number" min="1" value={form.quantidadeMoradores || ""} onChange={e => setForm({...form, quantidadeMoradores: parseInt(e.target.value)})} />
                 </div>
-                <div className="input-block">
-                    <label>Renda Familiar (R$)</label>
-                    <input type="text" placeholder="1412.00" value={form.rendaFamiliar || ""} onChange={e => setForm({...form, rendaFamiliar: e.target.value})} />
-                </div>
+<div className="input-block">
+  <label>Renda Familiar (R$)</label>
+  <input
+    type="text"
+    placeholder="R$ 1.412,00"
+    inputMode="numeric"
+    value={
+      form.rendaFamiliar
+        ? new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
+            parseInt(form.rendaFamiliar, 10) / 100
+          )
+        : ""
+    }
+    onChange={e => {
+      const digits = (e.target.value || "").replace(/\D/g, "");
+      setForm({ ...form, rendaFamiliar: digits });
+    }}
+  />
+</div>
                 <div className="input-block">
                     <label>Per Capita (R$)</label>
                     <input type="text" disabled value={form.rendaPerCapita} style={{ fontWeight: "bold", color: "var(--primary-blue)", backgroundColor: "#e8eff5" }} />
@@ -541,7 +743,7 @@ export default function Home() {
         </div>
       </section>
 
-            {/* --- SAÚDE (SEPARADA) --- */}
+            {/* --- SAÚDE --- */}
       <section className="form-section">
         <h3>Saúde</h3>
         
