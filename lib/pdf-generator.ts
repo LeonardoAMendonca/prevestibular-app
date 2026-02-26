@@ -1,20 +1,19 @@
-import { 
-  PDFDocument, 
-  rgb, 
-  StandardFonts, 
-  PageSizes, 
-  PDFPage, 
-  pushGraphicsState, 
-  popGraphicsState, 
-  clip, 
+import {
+  PDFDocument,
+  rgb,
+  StandardFonts,
+  PageSizes,
+  PDFPage,
+  pushGraphicsState,
+  popGraphicsState,
+  clip,
   endPath,
   moveTo,
-  appendBezierCurve, // Importação CORRETA para curvas
+  appendBezierCurve,
   closePath
 } from "pdf-lib";
 import { Aluno } from "@/types";
 
-// Extensão de tipo para evitar erros de TypeScript com campos opcionais
 type AlunoPDF = Aluno & {
   operadorResponsavel?: string;
   telefoneResponsavel?: string;
@@ -31,16 +30,17 @@ async function fetchImage(path: string) {
 }
 
 export async function renderizarLadoNoPdf(
-  pdfDoc: PDFDocument, 
-  page: PDFPage, 
-  aluno: AlunoPDF, 
-  x: number, 
-  y: number, 
+  pdfDoc: PDFDocument,
+  page: PDFPage,
+  aluno: AlunoPDF,
+  x: number,
+  y: number,
   isVerso: boolean
 ) {
   const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
   const colorText = rgb(0.15, 0.15, 0.15);
 
+  // Renderização da imagem de fundo (frente ou verso)
   try {
     const imgPath = isVerso ? '/baseback.png' : '/base.png';
     const bytes = await fetchImage(imgPath);
@@ -49,7 +49,7 @@ export async function renderizarLadoNoPdf(
   } catch (e) { console.error("Erro base", e); }
 
   if (!isVerso) {
-    // 1. LOGOS (Posições exatas do seu código original)
+    // Inserção de logotipos institucionais
     const logos = [
       { path: '/pju.png', L: 0, T: 0, R: 2.736, B: 1.729 },
       { path: '/acao.png', L: 2.392, T: 1.844, R: 0.567, B: 0.026 },
@@ -66,188 +66,161 @@ export async function renderizarLadoNoPdf(
           width: cardWidth - inchToPts(logo.L) - inchToPts(logo.R),
           height: cardHeight - inchToPts(logo.T) - inchToPts(logo.B)
         });
-      } catch (e) {}
+      } catch (e) { }
     }
 
-    // 2. FOTO COM RECORTE CIRCULAR (CLIPPING MASK)
+    // Processamento da foto do aluno com máscara de recorte oval
     if (aluno.foto) {
       try {
-        // Tratamento do base64
         const base64Data = aluno.foto.includes(',') ? aluno.foto.split(',')[1] : aluno.foto;
         const fBytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
         const fImg = await pdfDoc.embedPng(fBytes).catch(() => pdfDoc.embedJpg(fBytes));
-        
-        // Definições de tamanho e posição (3.37cm)
-        const fSize = cmToPts(3.37); 
-        const photoX = x + cmToPts(0.5);
-        const photoY = y + cardHeight - cmToPts(1.0) - fSize;
 
-        // Cálculos matemáticos para o círculo (Curvas de Bézier)
-        const r = fSize / 2;       // Raio
-        const cx = photoX + r;     // Centro X
-        const cy = photoY + r;     // Centro Y
-        const k = 0.5522847498;    // Constante "Kappa" para aproximar círculo perfeito
-        const cd = r * k;          // Distância de controle
+        const fWidth = cmToPts(2.6);
+        const fHeight = cmToPts(3.8);
+        const photoX = x + cmToPts(1);
+        const photoY = y + cardHeight - cmToPts(0.8) - fHeight;
 
-        // A. Fundo Branco (para garantir limpeza atrás da foto)
+        const rx = fWidth / 2;
+        const ry = fHeight / 2;
+        const cx = photoX + rx;
+        const cy = photoY + ry;
+        const k = 0.5522847498;
+        const cdx = rx * k;
+        const cdy = ry * k;
+
         page.drawEllipse({
-            x: cx, y: cy, xScale: r, yScale: r,
-            color: rgb(1, 1, 1),
+          x: cx, y: cy,
+          xScale: rx, yScale: ry,
+          color: rgb(1, 1, 1),
         });
 
-        // B. Inicia o Recorte
+        // Criação da máscara de recorte via curvas de Bézier
         page.pushOperators(pushGraphicsState());
-
-        // Constrói o caminho do círculo manualmente usando appendBezierCurve
-        // A ordem é: moveTo(inicio) -> 4 curvas -> closePath -> clip -> endPath
         page.pushOperators(
-          moveTo(cx + r, cy), // Começa na direita (0 graus)
-
-          // Quadrante 1: Direita -> Topo
-          appendBezierCurve(cx + r, cy + cd, cx + cd, cy + r, cx, cy + r),
-          
-          // Quadrante 2: Topo -> Esquerda
-          appendBezierCurve(cx - cd, cy + r, cx - r, cy + cd, cx - r, cy),
-          
-          // Quadrante 3: Esquerda -> Baixo
-          appendBezierCurve(cx - r, cy - cd, cx - cd, cy - r, cx, cy - r),
-          
-          // Quadrante 4: Baixo -> Direita
-          appendBezierCurve(cx + cd, cy - r, cx + r, cy - cd, cx + r, cy),
-
-          closePath(), 
-          clip(),    // Transforma o caminho desenhado acima em máscara
-          endPath()  
+          moveTo(cx + rx, cy),
+          appendBezierCurve(cx + rx, cy + cdy, cx + cdx, cy + ry, cx, cy + ry),
+          appendBezierCurve(cx - cdx, cy + ry, cx - rx, cy + cdy, cx - rx, cy),
+          appendBezierCurve(cx - rx, cy - cdy, cx - cdx, cy - ry, cx, cy - ry),
+          appendBezierCurve(cx + cdx, cy - ry, cx + rx, cy - cdy, cx + rx, cy),
+          closePath(),
+          clip(),
+          endPath()
         );
 
-        // C. Lógica "Cover" (Preencher o círculo sem distorcer a imagem)
+        // Lógica de redimensionamento centralizado (Object-fit: cover)
         const imgDims = fImg.scale(1);
         const imgRatio = imgDims.width / imgDims.height;
-        
-        let drawW = fSize;
-        let drawH = fSize;
-        let drawX = photoX;
-        let drawY = photoY;
+        const ovalRatio = fWidth / fHeight;
+        let drawW, drawH, drawX, drawY;
 
-        if (imgRatio > 1) { 
-             // Foto mais larga que alta (Landscape)
-             drawH = fSize;
-             drawW = fSize * imgRatio;
-             drawX = photoX - (drawW - fSize) / 2; // Centraliza horizontalmente
-        } else { 
-             // Foto mais alta que larga (Portrait)
-             drawW = fSize;
-             drawH = fSize / imgRatio;
-             drawY = photoY - (drawH - fSize) / 2; // Centraliza verticalmente
+        if (imgRatio > ovalRatio) {
+          drawH = fHeight;
+          drawW = fHeight * imgRatio;
+          drawX = photoX - (drawW - fWidth) / 2;
+          drawY = photoY;
+        } else {
+          drawW = fWidth;
+          drawH = fWidth / imgRatio;
+          drawX = photoX;
+          drawY = photoY - (drawH - fHeight) / 2;
         }
 
-        // Desenha a imagem (será cortada pelo clip)
         page.drawImage(fImg, { x: drawX, y: drawY, width: drawW, height: drawH });
-
-        // D. Restaura estado (Remove o recorte para os próximos elementos)
         page.pushOperators(popGraphicsState());
-
       } catch (e) { console.error("Erro foto", e); }
     }
 
-    // 3. NOME (Lógica de Auto-ajuste original)
+    // Renderização do nome com ajuste automático de tamanho de fonte e quebra de linha
     const nomeOriginal = (aluno.nome || "").toUpperCase();
-    const nomeX = x + inchToPts(1.688);
-    const maxW = (x + cardWidth) - nomeX - inchToPts(0.177);
-    let nSize = 5;
-    let nLines: string[] = [nomeOriginal];
+    const nomeX = x + inchToPts(1.55);
+    
+    // 1. Defina seus limites de caixa aqui
+    const maxW = cmToPts(3.5); // Largura máxima da caixa
+    const maxH = cmToPts(1); // Altura máxima da caixa (o limite vertical)
+    
+    let nSize = 9; // Tamanho inicial
+    let nLines: string[] = [];
+    let alturaTotal = 0;
 
+    // Loop de "Best Fit" (Melhor Encaixe)
     while (nSize > 2) {
       const words = nomeOriginal.split(' ');
-      let tmp = ['']; let curr = 0; let fit = true;
+      let linhasTemporarias: string[] = [''];
+      let curr = 0;
+
+      // Tenta distribuir as palavras nas linhas respeitando a largura (maxW)
       for (const w of words) {
-        const sp = tmp[curr] === '' ? '' : ' ';
-        if (fontBold.widthOfTextAtSize(tmp[curr] + sp + w, nSize) <= maxW) { tmp[curr] += sp + w; }
-        else { curr++; if (curr >= 2) { fit = false; break; } tmp[curr] = w; }
+        const sp = linhasTemporarias[curr] === '' ? '' : ' ';
+    const larguraTeste = fontBold.widthOfTextAtSize(linhasTemporarias[curr] + sp + w, nSize);
+        
+        if (larguraTeste <= maxW) {
+          linhasTemporarias[curr] += sp + w;
+        } else {
+          curr++;
+          linhasTemporarias[curr] = w;
+        }
       }
-      if (fit) { nLines = tmp.filter(l => l !== ''); break; }
-      nSize -= 0.1;
+
+      // 2. Calcula a altura que esse bloco de texto ocuparia
+      // (Quantidade de linhas * tamanho da fonte) + (espaçamento entre linhas)
+      const espacamento = 1.5;
+      alturaTotal = (linhasTemporarias.length * nSize) + ((linhasTemporarias.length - 1) * espacamento);
+
+      // 3. Condição de parada: se a altura total couber no limite vertical, aceitamos
+      if (alturaTotal <= maxH) {
+        nLines = linhasTemporarias;
+        break; 
+      }
+
+      // Se não couber na altura, diminui a fonte e tenta distribuir tudo de novo
+      nSize -= 0.2;
     }
-    
+
+    // Renderização
     nLines.forEach((l, i) => {
-      page.drawText(l, { 
-        x: nomeX, 
-        y: (y + cardHeight) - inchToPts(0.647) - nSize - (i * (nSize + 1.5)), 
-        size: nSize, 
-        font: fontBold, 
-        color: colorText 
+      page.drawText(l, {
+        x: nomeX,
+        // O texto começa no topo da caixa e desce conforme o índice da linha
+        y: (y + cardHeight) - inchToPts(0.600) - (i * (nSize + 1.5)),
+        size: nSize,
+        font: fontBold,
+        color: colorText
       });
     });
 
-    // ... (Código anterior: Logos, Foto, Nome) ...
-
-    // 4. DADOS FINAIS (Alterado: Contato e Validade)
-    
-    // --- LÓGICA DO CONTATO ---
-    // Prioriza o telefone do responsável se o aluno não for o próprio responsável
+    // Lógica para definir contato prioritário (Responsável vs Aluno)
     let zapFinal = aluno.telefoneWhatsapp || "";
     if (aluno.alunoEProprioResponsavel === "Não" && aluno.telefoneResponsavel) {
-        zapFinal = aluno.telefoneResponsavel;
+      zapFinal = aluno.telefoneResponsavel;
     }
+    let zapEmergencia = aluno.telefoneEmergencia1 || "";
 
-    // --- LÓGICA DA VALIDADE ---
-    // Pega o ano da data de criação e define como 31/12 daquele ano
-    let anoValidade = new Date().getFullYear().toString(); // Fallback: Ano atual
-    
+    // Cálculo automático do ano de validade baseado na criação do registro
+    let anoValidade = new Date().getFullYear().toString();
     if (aluno.dataCriacao) {
-        // Tenta extrair o ano da string (suporta DD/MM/YYYY ou YYYY-MM-DD)
-        const partes = aluno.dataCriacao.includes('/') 
-            ? aluno.dataCriacao.split('/') 
-            : aluno.dataCriacao.split('-');
-            
-        // Se a string tem 4 dígitos, assumimos que é o ano
-        const parteAno = partes.find(p => p.length === 4);
-        if (parteAno) anoValidade = parteAno;
+      const partes = aluno.dataCriacao.includes('/') ? aluno.dataCriacao.split('/') : aluno.dataCriacao.split('-');
+      const parteAno = partes.find(p => p.length === 4);
+      if (parteAno) anoValidade = parteAno;
     }
-    const validadeFinal = `31/12/${anoValidade}`;
+    const validadeFinal = `12/${anoValidade}`;
 
-    // --- DESENHAR CONTATO (Posição Superior) ---
-    // Onde antes ficava o nascimento
+    // Desenho dos blocos de informações (Contato, Emergência e Validade)
     const yContato = y + cardHeight - inchToPts(0.977);
-    
-    page.drawText("CONTATO:", { 
-        x: x + inchToPts(1.690), 
-        y: yContato, 
-        size: 4, // Rótulo menor
-        font: fontBold, 
-        color: colorText 
-    });
-    
-    page.drawText(zapFinal, { 
-        x: x + inchToPts(1.690), 
-        y: yContato - 6, // Valor logo abaixo
-        size: 5, 
-        font: fontBold, 
-        color: colorText 
-    });
+    page.drawText("Contato:", { x: x + inchToPts(1.55), y: yContato,size: 6, font: fontBold, color: colorText });
+    page.drawText(zapFinal, { x: x + inchToPts(1.55), y: yContato - 8, size: 8, font: fontBold, color: colorText });
 
-    // --- DESENHAR VALIDADE (Posição Inferior) ---
-    // Onde antes ficava o telefone
-    const yValidade = y + cardHeight - inchToPts(1.316);
+    const yEmergencia = y + cardHeight - inchToPts(1.316);
+    page.drawText("Contato de emergência:", { x: x + inchToPts(1.55), y: yEmergencia, size: 6, font: fontBold, color: colorText });
+    page.drawText(zapEmergencia, { x: x + inchToPts(1.55), y: yEmergencia - 8, size: 8, font: fontBold, color: colorText });
 
-    page.drawText("VALIDADE:", { 
-        x: x + inchToPts(1.688), 
-        y: yValidade, 
-        size: 4, // Rótulo menor
-        font: fontBold, 
-        color: colorText 
-    });
-
-    page.drawText(validadeFinal, { 
-        x: x + inchToPts(1.688), 
-        y: yValidade - 6, // Valor logo abaixo
-        size: 5, 
-        font: fontBold, 
-        color: colorText 
-    });
+    const yValidade = y + cardHeight - inchToPts(1.655);
+    page.drawText("Validade:", { x: x + inchToPts(1.55), y: yValidade, size: 6, font: fontBold, color: colorText });
+    page.drawText(validadeFinal, { x: x + inchToPts(1.55), y: yValidade - 8, size: 8, font: fontBold, color: colorText });
   }
 }
 
+// Função principal para geração de múltiplas carteirinhas em papel A4
 export async function gerarPdfLote(alunos: Aluno[]) {
   const pdfDoc = await PDFDocument.create();
   const gapX = cmToPts(0.5);
@@ -267,7 +240,7 @@ export async function gerarPdfLote(alunos: Aluno[]) {
       const y = startY + ((3 - row) * (cardHeight + gapY));
 
       await renderizarLadoNoPdf(pdfDoc, pageF, lote[j] as AlunoPDF, xF, y, false);
-      
+
       const colV = col === 0 ? 1 : 0;
       const xV = startX + (colV * (cardWidth + gapX));
       await renderizarLadoNoPdf(pdfDoc, pageV, lote[j] as AlunoPDF, xV, y, true);

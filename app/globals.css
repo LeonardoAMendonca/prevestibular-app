@@ -246,3 +246,12 @@ button:active { transform: scale(0.98); }
     flex-wrap: nowrap; /* Mantém Cidade e UF na mesma linha mesmo no mobile */
   }
 }
+
+.estiloCard{
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
+  text-align: center;
+  border-top: 4px solid var(--primary-blue);
+}
