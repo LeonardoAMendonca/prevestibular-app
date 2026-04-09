@@ -1,91 +1,96 @@
-export interface Aluno {
-  // Dados Pessoais
-  id?: string;
-  nome: string;
-  dataNascimento: string;
-  cpf: string;
-  email: string;
-  telefoneWhatsapp: string;
-  telefoneSecundario?: string;
-  foto: string | null;
-  
-  
-  // Endereço
-  cep: string;
-  endereco: string;
-  numero: string;
-  complemento?: string;
-  bairro: string;
-  cidade: string;
-  estado: string;
+// =============================================================================
+//  PJU — TypeScript Types
+// =============================================================================
 
-  // Socioeconômico
-  identidadeRacial: "Preto" | "Pardo" | "Branco" | "Indígena" | "Amarelo" | "";
-  identidadeGenero: string;
-  temEsgoto: "Sim" | "Não" | "";
-  areaRiscoAmbiental: "Sim" | "Não" | "";
-  areaRiscoSeguranca: "Sim" | "Não" | "";
-  temFilhos: "Sim" | "Não" | "";
-  quantidadeFilhos: number;
-  tipoMoradia: string
-  dispositivosEstudo: string;
-  acessoInternet: string;
-  trabalha: "Sim" | "Não" | "";
-  cargaHorariaTrabalho: string;
-  quantidadeMoradores: number;
-  concluiuEnsinoMedio: "Sim" | "Não" | "";
-  temDeficiencia: "Sim" | "Não" | "";
-  qualDeficiencia?: string;
-  rendaFamiliar?: string;
-  rendaPerCapita: string;
+export type UserRole = 'ADMIN' | 'COORD' | 'PROF' | 'MONITOR' | 'INSPETOR' | 'ALUNO';
 
-  //Escolaridade
-  escolaPublica?: "Sim" | "Não" | "";
-  serieAtual?: string;
-  instituicaoEnsinoMedio?: string;
-  anoConclusaoEnsinoMedio?: string;
-
-  // Saúde
-  tipoSanguineo: string;
-  temAlergia: "Sim" | "Não" | "";
-  qualAlergia?: string;
-  temDoencaCronica: "Sim" | "Não" | "";
-  qualDoencaCronica?: string;
-  usaMedicacao: "Sim" | "Não" | "";
-  qualMedicacao?: string;
-  telefoneEmergencia1?: string;
-  nomeEmergencia1?: string;
-  parentescoEmergencia1?: string;
-  telefoneEmergencia2?: string;
-  nomeEmergencia2?: string;
-  parentescoEmergencia2?: string;
-
-  //Outros Dados
-  observacoesInternas?: string;
-  documentosConferidos?: boolean;
-  operadorResponsavel?: string;
-  dataCadastro?: string;
-  documentos?: File[];
-  dataCriacao?: string;
-
-  // Responsável
-  alunoEProprioResponsavel?: "Sim" | "Não" | "";
-  nomeResponsavel?: string;
-  parentescoResponsavel?: string;
-  cpfResponsavel?: string;
-  telefoneResponsavel?: string;
-  responsavelMoraComAluno?: "Sim" | "Não" | "";
-  cepResponsavel?: string;
-  enderecoResponsavel?: string;
-  numeroResponsavel?: string;
-  complementoResponsavel?: string;
-  bairroResponsavel?: string;
-  cidadeResponsavel?: string;
-  estadoResponsavel?: string;
+export interface EduUser {
+  email:      string;
+  name:       string;
+  role:       UserRole;
+  created_at?: string;
+  created_by?: string;
 }
 
-// Operador do Sistema
-export interface Operador {
-  nome: string;
-  cargo: string;
+export type CandidateStatus =
+  | 'INSCRITO'
+  | 'CLASSIFICADO'
+  | 'APROVADO'
+  | 'MATRICULADO'
+  | 'REPROVADO';
+
+export interface Candidate {
+  id:                string;
+  name:              string;
+  cpf:               string;
+  email:             string;
+  phone:             string;
+  birth_date:        string;
+  rg:                string;
+  endereco:          string;
+  renda_familiar:    number;
+  renda_per_capita:  number;
+  num_membros:       number;
+  escola_publica:    'SIM' | 'NÃO';
+  risco_social:      'SIM' | 'NÃO';
+  pontuacao?:        number;
+  status:            CandidateStatus;
+  submitted_at:      string;
+}
+
+export type StudentStatus = 'ATIVO' | 'INATIVO';
+
+export interface Student {
+  id_student:       string;
+  cpf:              string;
+  name:             string;
+  birth_date:       string;
+  candidate_id:     string;
+  status:           StudentStatus;
+  drive_folder_id:  string;
+  drive_photo_id?:  string;
+  enrolled_at:      string;
+  enrolled_by:      string;
+}
+
+export type AttendanceStatus = 'P' | 'F';
+export type AttendanceType   = 'REGULAR' | 'MONITORIA';
+
+export interface AttendanceRecord {
+  id_event:    string;
+  student_id:  string;
+  date:        string;
+  status:      AttendanceStatus;
+  type:        AttendanceType;
+  assigned_by: string;
+  recorded_at: string;
+}
+
+export interface RankedCandidate extends Candidate {
+  posicao: number;
+}
+
+export interface LogEntry {
+  timestamp:   string;
+  user_email:  string;
+  action:      string;
+  affected_id: string;
+  detail:      string;
+}
+
+// API response wrappers
+export interface ApiOk<T>  { status: 200; data: T }
+export interface ApiErr    { status: number; error: string }
+export type     ApiResult<T> = ApiOk<T> | ApiErr;
+
+// NextAuth extension
+declare module 'next-auth' {
+  interface Session {
+    idToken?: string;
+    user:     EduUser & { image?: string };
+  }
+  interface JWT {
+    idToken?: string;
+    role?:    UserRole;
+  }
 }
