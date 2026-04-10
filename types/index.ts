@@ -1,5 +1,5 @@
 // =============================================================================
-//  PJU — TypeScript Types
+//  EduSocial — TypeScript Types
 // =============================================================================
 
 export type UserRole = 'ADMIN' | 'COORD' | 'PROF' | 'MONITOR' | 'INSPETOR' | 'ALUNO';
@@ -87,10 +87,13 @@ export type     ApiResult<T> = ApiOk<T> | ApiErr;
 declare module 'next-auth' {
   interface Session {
     idToken?: string;
-    user:     EduUser & { image?: string };
+    user: EduUser & { image?: string };
   }
+}
+
+declare module 'next-auth/jwt' {
   interface JWT {
     idToken?: string;
-    role?:    UserRole;
+    role?: UserRole;
   }
 }

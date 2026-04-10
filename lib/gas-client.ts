@@ -43,7 +43,7 @@ export interface FileUploadPayload {
 
 interface FetchOptions {
   method?:  string;
-  body?:    Record<string, unknown>;
+  body?:    Record<string, any>;
   params?:  Record<string, string>;
 }
 

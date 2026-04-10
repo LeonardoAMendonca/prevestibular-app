@@ -3,7 +3,7 @@ import './globals.css';
 import { SessionProvider } from './providers';
 
 export const metadata: Metadata = {
-  title:       'PJU — Pré-Vestibular Social',
+  title:       'EduSocial — Pré-Vestibular Social',
   description: 'Sistema de Gestão Integrado',
 };
 

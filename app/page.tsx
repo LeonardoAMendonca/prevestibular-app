@@ -32,7 +32,7 @@ export default function LoginPage() {
             className="text-3xl tracking-tight"
             style={{ fontFamily: 'var(--font-fraunces)', color: '#c9e8e8', fontWeight: 300 }}
           >
-            <span style={{ color: '#f8c06a' }}>PJU</span>
+            Edu<span style={{ color: '#f8c06a' }}>Social</span>
           </span>
         </div>
 

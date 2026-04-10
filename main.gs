@@ -1,5 +1,5 @@
 // =============================================================================
-//  PJU — Google Apps Script Backend (main.gs)
+//  EduSocial — Google Apps Script Backend (main.gs)
 //  Sistema de Gestão para Pré-Vestibular Social
 //
 //  DEPLOY: Publicar como Web App
