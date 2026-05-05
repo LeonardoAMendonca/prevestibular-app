@@ -42,10 +42,10 @@ export default function DashboardPage() {
   if (!currentUser) return null;
 
   const roleBadge: Record<string, string> = {
-    ADMIN:       'bg-purple-100 text-purple-700',
+    ADMIN: 'bg-purple-100 text-purple-700',
     COORDENAÇÃO: 'bg-blue-100 text-blue-700',
-    MONITOR:     'bg-green-100 text-green-700',
-    INSPETOR:    'bg-orange-100 text-orange-700',
+    MONITOR: 'bg-green-100 text-green-700',
+    INSPETOR: 'bg-orange-100 text-orange-700',
   };
 
   return (
@@ -67,6 +67,12 @@ export default function DashboardPage() {
                   Usuários
                 </Link>
               )}
+              <Link
+                href="/presenca"
+                className="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
+              >
+                Presença
+              </Link>
             </nav>
           </div>
           <div className="flex items-center gap-4">
@@ -145,12 +151,11 @@ export default function DashboardPage() {
                     {student.bairro && student.cidade ? `${student.bairro}, ${student.cidade}` : '—'}
                   </td>
                   <td className="px-4 py-3">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      student.statusMatricula === 'ativo'    ? 'bg-green-100 text-green-700'   :
-                      student.statusMatricula === 'inativo'  ? 'bg-gray-100 text-gray-500'     :
-                      student.statusMatricula === 'trancado' ? 'bg-yellow-100 text-yellow-700' :
-                                                               'bg-blue-100 text-blue-600'
-                    }`}>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${student.statusMatricula === 'ativo' ? 'bg-green-100 text-green-700' :
+                        student.statusMatricula === 'inativo' ? 'bg-gray-100 text-gray-500' :
+                          student.statusMatricula === 'trancado' ? 'bg-yellow-100 text-yellow-700' :
+                            'bg-blue-100 text-blue-600'
+                      }`}>
                       {student.statusMatricula || 'indefinido'}
                     </span>
                   </td>
