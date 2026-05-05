@@ -2,29 +2,25 @@
 //  ARQUIVO: src/app/api/gas/route.ts
 //  Propósito: Ponte segura entre o browser e o Google Apps Script.
 //
-//  POR QUE ESTE ARQUIVO EXISTE?
-//  Se o browser chamasse o GAS diretamente, a URL do GAS
-//  ficaria visível para qualquer pessoa inspecionando o tráfego.
-//  Ao rotear pelo servidor Next.js, escondemos essa URL e
-//  também ganhamos um ponto central para adicionar rate limiting
-//  e outros controles de segurança no futuro.
+//  FLUXO:
+//  Browser → /api/gas (Next.js servidor) → GAS → resposta
 //
-//  FLUXO: Browser → /api/gas (Next.js) → GAS → resposta
+//  Este servidor pode chamar o GAS sem CORS pois é uma chamada
+//  servidor-para-servidor. O browser nunca fala com o GAS diretamente.
 // ============================================================
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/authOptions';
-import { fetchDataDump } from '@/lib/gasClient';
+import { fetchDataDump, generateToken } from '@/lib/gasClient';
 
-// ─── Rota POST: Busca o dump de dados ─────────────────────────
-// Chamada pelo AuthContext quando o usuário faz login.
+const GAS_URL = process.env.NEXT_PUBLIC_GAS_URL!;
+
+// ─── POST: trata dois casos ────────────────────────────────
+// Caso 1 (sem action): login inicial — busca dump de dados
+// Caso 2 (com action): escrita — ADD_STUDENT, UPDATE_STUDENT, etc.
 export async function POST(request: NextRequest) {
   try {
-    // Verifica se existe sessão válida no servidor.
-    // Isso é uma segunda camada de segurança: mesmo que alguém
-    // tente chamar /api/gas diretamente, sem sessão Google válida
-    // o servidor rejeita a requisição.
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.email) {
@@ -35,9 +31,9 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const userEmail = body.userEmail || session.user.email;
 
-    // Confirmação extra: o e-mail do body deve bater com a sessão
+    // Garante que o e-mail bate com a sessão ativa
+    const userEmail = body.userEmail || session.user.email;
     if (userEmail !== session.user.email) {
       return NextResponse.json(
         { success: false, error: 'Inconsistência de sessão detectada.' },
@@ -45,15 +41,36 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Chama o GAS e retorna o dump de dados
-    const gasData = await fetchDataDump(userEmail);
+    // ── Caso 1: sem action → busca dump (login inicial) ──
+    if (!body.action) {
+      const gasData = await fetchDataDump(userEmail);
+      return NextResponse.json(gasData);
+    }
 
+    // ── Caso 2: com action → repassa ao GAS via POST ─────
+    // O servidor Next.js faz a chamada ao GAS (sem CORS).
+    const token = generateToken(userEmail);
+
+    const gasResponse = await fetch(GAS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action:  body.action,
+        payload: body.payload,
+        token,
+      }),
+    });
+
+    if (!gasResponse.ok) {
+      throw new Error(`Erro HTTP do GAS: ${gasResponse.status}`);
+    }
+
+    const gasData = await gasResponse.json();
     return NextResponse.json(gasData);
 
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Erro desconhecido';
 
-    // Diferencia erros de "usuário não autorizado" de erros técnicos
     if (message.includes('Acesso negado') || message.includes('não cadastrado')) {
       return NextResponse.json(
         { success: false, error: message },
@@ -62,15 +79,13 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(
-      { success: false, error: 'Falha na comunicação com o servidor de dados: ' + message },
+      { success: false, error: 'Falha na comunicação com o servidor: ' + message },
       { status: 500 }
     );
   }
 }
 
-// ─── Rota GET: Health check ────────────────────────────────────
-// Útil para verificar se a rota está ativa.
-// Acesse /api/gas no browser para confirmar.
+// ─── GET: health check ────────────────────────────────────
 export async function GET() {
   return NextResponse.json({
     status: 'ok',
