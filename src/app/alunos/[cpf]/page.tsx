@@ -1,8 +1,5 @@
 'use client';
 
-// ARQUIVO: src/app/alunos/[cpf]/page.tsx
-// Atualizado com: abas "Dados Cadastrais" e "Presença"
-
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -16,13 +13,14 @@ type Aba = 'dados' | 'presenca';
 interface RegistroPresenca {
   data: string;
   status: string;
+  justificativa?: string;
   registrado_por: string;
 }
 
 const STATUS_PRESENCA: Record<string, { label: string; cor: string }> = {
-  presente:          { label: 'Presente',          cor: 'bg-green-100 text-green-700' },
-  falta:             { label: 'Falta',             cor: 'bg-red-100 text-red-700' },
-  falta_justificada: { label: 'Falta Justificada', cor: 'bg-yellow-100 text-yellow-700' },
+  presente:          { label: 'Presente',          cor: 'bg-green-100 text-green-700'  },
+  falta:             { label: 'Falta',             cor: 'bg-red-100 text-red-700'      },
+  falta_justificada: { label: 'Falta Justificada', cor: 'bg-yellow-100 text-yellow-700'},
 };
 
 export default function AlunoDetailPage() {
@@ -115,6 +113,7 @@ export default function AlunoDetailPage() {
 
   return (
     <main className="min-h-screen bg-gray-50">
+      {/* Cabeçalho */}
       <div className="bg-white border-b border-gray-100 px-6 py-4">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -137,6 +136,7 @@ export default function AlunoDetailPage() {
       </div>
 
       <div className="max-w-5xl mx-auto px-6 py-8">
+        {/* Card resumo */}
         <div className="bg-white rounded-xl shadow-sm p-6 mb-6 flex items-start gap-6">
           <div className="w-20 h-20 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 text-2xl font-bold text-blue-600">
             {student.nome?.charAt(0).toUpperCase()}
@@ -160,6 +160,7 @@ export default function AlunoDetailPage() {
           </span>
         </div>
 
+        {/* Abas */}
         <div className="flex gap-1 mb-6 bg-white rounded-xl shadow-sm p-1 w-fit">
           <button onClick={() => { setAbaAtiva('dados'); setIsEditing(false); }}
             className={`px-5 py-2 text-sm font-medium rounded-lg transition-colors ${abaAtiva === 'dados' ? 'bg-blue-600 text-white' : 'text-gray-500 hover:text-gray-700'}`}>
@@ -167,27 +168,35 @@ export default function AlunoDetailPage() {
           </button>
           <button onClick={() => setAbaAtiva('presenca')}
             className={`px-5 py-2 text-sm font-medium rounded-lg transition-colors ${abaAtiva === 'presenca' ? 'bg-blue-600 text-white' : 'text-gray-500 hover:text-gray-700'}`}>
-            Presença
+            Presença {freq !== null && `(${freq}%)`}
           </button>
         </div>
 
         <div className="bg-white rounded-xl shadow-sm p-8">
+          {/* Aba Dados */}
           {abaAtiva === 'dados' && (
             isEditing ? (
               <><div className="mb-8"><h3 className="text-lg font-bold text-gray-800">Editando: {student.nome}</h3><p className="text-sm text-gray-400 mt-1">O CPF não pode ser alterado.</p></div><StudentForm mode="edit" initialData={student} /></>
             ) : <ReadOnlyView student={student} />
           )}
 
+          {/* Aba Presença */}
           {abaAtiva === 'presenca' && (
             <div>
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-base font-bold text-gray-800">Histórico de Presença</h3>
-                {freq !== null && (
-                  <div className={`px-4 py-2 rounded-lg text-sm font-semibold ${freq >= 75 ? 'bg-green-100 text-green-700' : freq >= 50 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>
-                    Frequência: {freq}% {freq < 75 && '⚠️'}
-                  </div>
-                )}
+                <div className="flex items-center gap-3">
+                  {freq !== null && (
+                    <div className={`px-4 py-2 rounded-lg text-sm font-semibold ${freq >= 75 ? 'bg-green-100 text-green-700' : freq >= 50 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>
+                      Frequência: {freq}% {freq < 75 && '⚠️'}
+                    </div>
+                  )}
+                  <Link href="/presenca" className="px-3 py-2 text-xs text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors">
+                    + Registrar presença
+                  </Link>
+                </div>
               </div>
+
               {loadingPresenca ? (
                 <div className="text-center py-12"><div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" /><p className="text-gray-400 text-sm">Carregando...</p></div>
               ) : presencas.length === 0 ? (
@@ -197,28 +206,42 @@ export default function AlunoDetailPage() {
                 </div>
               ) : (
                 <>
+                  {/* Cards de resumo */}
                   <div className="grid grid-cols-3 gap-4 mb-6">
                     {(['presente', 'falta', 'falta_justificada'] as const).map((s) => (
                       <div key={s} className={`rounded-lg p-4 text-center ${s === 'presente' ? 'bg-green-50' : s === 'falta' ? 'bg-red-50' : 'bg-yellow-50'}`}>
                         <p className="text-2xl font-bold">{presencas.filter((r) => r.status === s).length}</p>
-                        <p className="text-xs mt-1">{STATUS_PRESENCA[s].label}</p>
+                        <p className="text-xs mt-1 text-gray-600">{STATUS_PRESENCA[s].label}</p>
                       </div>
                     ))}
                   </div>
+
+                  {/* Tabela */}
                   <div className="overflow-hidden rounded-lg border border-gray-100">
                     <table className="w-full text-sm">
                       <thead className="bg-gray-50">
                         <tr>
                           <th className="text-left px-4 py-3 text-gray-500 font-medium text-xs uppercase tracking-wide">Data</th>
                           <th className="text-left px-4 py-3 text-gray-500 font-medium text-xs uppercase tracking-wide">Status</th>
+                          <th className="text-left px-4 py-3 text-gray-500 font-medium text-xs uppercase tracking-wide">Justificativa</th>
                           <th className="text-left px-4 py-3 text-gray-500 font-medium text-xs uppercase tracking-wide hidden sm:table-cell">Registrado por</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-50">
                         {[...presencas].sort((a, b) => b.data.localeCompare(a.data)).map((r, i) => (
                           <tr key={i} className="hover:bg-gray-50">
-                            <td className="px-4 py-3 font-medium text-gray-700">{formatarData(r.data)}</td>
-                            <td className="px-4 py-3"><span className={`px-2 py-1 rounded-full text-xs font-medium ${STATUS_PRESENCA[r.status]?.cor ?? 'bg-gray-100 text-gray-500'}`}>{STATUS_PRESENCA[r.status]?.label ?? r.status}</span></td>
+                            <td className="px-4 py-3 font-medium text-gray-700 whitespace-nowrap">{formatarData(r.data)}</td>
+                            <td className="px-4 py-3">
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${STATUS_PRESENCA[r.status]?.cor ?? 'bg-gray-100 text-gray-500'}`}>
+                                {STATUS_PRESENCA[r.status]?.label ?? r.status}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-gray-500 text-xs">
+                              {r.justificativa
+                                ? <span className="italic text-yellow-700">"{r.justificativa}"</span>
+                                : <span className="text-gray-300">—</span>
+                              }
+                            </td>
                             <td className="px-4 py-3 text-gray-400 text-xs hidden sm:table-cell">{r.registrado_por}</td>
                           </tr>
                         ))}
@@ -232,6 +255,7 @@ export default function AlunoDetailPage() {
         </div>
       </div>
 
+      {/* Modal delete */}
       {showDeleteModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
           <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full">

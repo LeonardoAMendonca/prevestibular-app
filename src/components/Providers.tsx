@@ -19,7 +19,7 @@ export function Providers({ children }: ProvidersProps) {
   return (
     // SessionProvider do NextAuth DEVE ser o mais externo,
     // pois o AuthProvider depende do useSession() internamente.
-    <SessionProvider>
+    <SessionProvider refetchOnWindowFocus={false} refetchInterval={0}>
       <AuthProvider>
         {children}
       </AuthProvider>

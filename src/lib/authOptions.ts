@@ -54,16 +54,3 @@ export const authOptions: NextAuthOptions = {
     signIn: '/login',
   },
 };
-
-
-// ============================================================
-//  ARQUIVO: src/app/api/auth/[...nextauth]/route.ts
-//  Propósito: Ponto de entrada do NextAuth.
-//  NÃO MODIFIQUE este arquivo - é padrão do NextAuth.
-// ============================================================
-// Crie o arquivo manualmente com este conteúdo:
-//
-//   import NextAuth from 'next-auth';
-//   import { authOptions } from '@/lib/authOptions';
-//   const handler = NextAuth(authOptions);
-//   export { handler as GET, handler as POST };
