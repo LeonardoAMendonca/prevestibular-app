@@ -18,9 +18,9 @@ interface RegistroPresenca {
 }
 
 const STATUS_PRESENCA: Record<string, { label: string; cor: string }> = {
-  presente:          { label: 'Presente',          cor: 'bg-green-100 text-green-700'  },
-  falta:             { label: 'Falta',             cor: 'bg-red-100 text-red-700'      },
-  falta_justificada: { label: 'Falta Justificada', cor: 'bg-yellow-100 text-yellow-700'},
+  presente: { label: 'Presente', cor: 'bg-green-100 text-green-700' },
+  falta: { label: 'Falta', cor: 'bg-red-100 text-red-700' },
+  falta_justificada: { label: 'Falta Justificada', cor: 'bg-yellow-100 text-yellow-700' },
 };
 
 export default function AlunoDetailPage() {
@@ -278,12 +278,12 @@ export default function AlunoDetailPage() {
 
 function ReadOnlyView({ student }: { student: Student }) {
   const groups = [
-    { title: 'Identificação', fields: [{ label: 'CPF', value: student.cpf }, { label: 'Nome', value: student.nome }, { label: 'Data de Nascimento', value: student.dataNascimento }, { label: 'Tipo Sanguíneo', value: student.tipoSanguineo }, { label: 'Status de Matrícula', value: student.statusMatricula }]},
-    { title: 'Contato', fields: [{ label: 'WhatsApp', value: student.telefoneWhatsapp }, { label: 'Telefone Secundário', value: student.telefoneSecundario }]},
-    { title: 'Endereço', fields: [{ label: 'CEP', value: student.cep }, { label: 'Endereço', value: `${student.endereco || ''}${student.numero ? ', ' + student.numero : ''}` }, { label: 'Bairro', value: student.bairro }, { label: 'Cidade / Estado', value: `${student.cidade || ''} ${student.estado ? '- ' + student.estado : ''}` }]},
-    { title: 'Perfil Social', fields: [{ label: 'Identidade Racial', value: student.identidadeRacial }, { label: 'Identidade de Gênero', value: student.identidadeGenero }, { label: 'Tem Filhos', value: student.temFilhos }]},
-    { title: 'Moradia e Vulnerabilidade', fields: [{ label: 'Tipo de Moradia', value: student.tipoMoradia }, { label: 'Moradores', value: student.quantidadeMoradores }, { label: 'Área de Risco Ambiental', value: student.areaRiscoAmbiental }, { label: 'Área de Risco de Segurança', value: student.areaRiscoSeguranca }]},
-    { title: 'Escolaridade', fields: [{ label: 'Concluiu Ensino Médio', value: student.concluiuEnsinoMedio }, { label: 'Ano de Conclusão', value: student.anoConclusaoEnsinoMedio }]},
+    { title: 'Identificação', fields: [{ label: 'CPF', value: student.cpf }, { label: 'Nome', value: student.nome }, { label: 'Data de Nascimento', value: student.dataNascimento }, { label: 'Tipo Sanguíneo', value: student.tipoSanguineo }, { label: 'Status de Matrícula', value: student.statusMatricula }] },
+    { title: 'Contato', fields: [{ label: 'WhatsApp', value: student.telefoneWhatsapp }, { label: 'Telefone Secundário', value: student.telefoneSecundario }] },
+    { title: 'Endereço', fields: [{ label: 'CEP', value: student.cep }, { label: 'Endereço', value: `${student.endereco || ''}${student.numero ? ', ' + student.numero : ''}` }, { label: 'Bairro', value: student.bairro }, { label: 'Cidade / Estado', value: `${student.cidade || ''} ${student.estado ? '- ' + student.estado : ''}` }] },
+    { title: 'Perfil Social', fields: [{ label: 'Identidade Racial', value: student.identidadeRacial }, { label: 'Identidade de Gênero', value: student.identidadeGenero }, { label: 'Tem Filhos', value: student.temFilhos }] },
+    { title: 'Moradia e Vulnerabilidade', fields: [{ label: 'Tipo de Moradia', value: student.tipoMoradia }, { label: 'Moradores', value: student.quantidadeMoradores }, { label: 'Área de Risco Ambiental', value: student.areaRiscoAmbiental }, { label: 'Área de Risco de Segurança', value: student.areaRiscoSeguranca }] },
+    { title: 'Escolaridade', fields: [{ label: 'Concluiu Ensino Médio', value: student.concluiuEnsinoMedio }, { label: 'Ano de Conclusão', value: student.anoConclusaoEnsinoMedio }] },
   ];
   return (
     <div className="space-y-8">

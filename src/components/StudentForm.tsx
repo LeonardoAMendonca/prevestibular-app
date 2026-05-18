@@ -144,6 +144,35 @@ export default function StudentForm({ initialData, mode }: Props) {
   const [isSaving, setIsSaving] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
+  const [uploadingFoto, setUploadingFoto] = useState(false);
+
+  async function handleFotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !currentUser) return;
+    if (file.size > 2 * 1024 * 1024) { 
+      setFeedback({ type: 'error', message: 'Foto muito grande. Máximo: 2MB.' }); 
+      return; 
+    }
+    setUploadingFoto(true);
+    try {
+      const base64 = await new Promise<string>((res, rej) => {
+        const r = new FileReader();
+        r.onload = () => res((r.result as string).split(',')[1]);
+        r.onerror = rej;
+        r.readAsDataURL(file);
+      });
+      const result = await postToGAS('UPLOAD_PHOTO', {
+        base64, filename: `aluno_${form.cpf}_${Date.now()}.${file.name.split('.').pop()}`,
+        mimeType: file.type, folder: 'alunos',
+      }, currentUser.email);
+      handleChange('fotoUrl', result.url);
+    } catch { 
+      setFeedback({ type: 'error', message: 'Erro ao enviar foto.' }); 
+    } finally { 
+      setUploadingFoto(false); 
+    }
+  }
+
   const isReadOnly = mode === 'edit' && !['ADMIN', 'COORDENAÇÃO'].includes(currentUser?.role ?? '');
 
   // Detecta se é menor de idade com base na data de nascimento
@@ -443,6 +472,26 @@ export default function StudentForm({ initialData, mode }: Props) {
             form={form} onChange={handleChange} disabled={isReadOnly} />
         </div>
       </div>
+
+      {/* ── Foto do Aluno ─────────────────────────────────── */}
+<div title="Foto">
+  <div className="sm:col-span-3 flex items-center gap-4">
+    <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0 border-2 border-gray-200">
+      {form.fotoUrl
+        ? <img src={form.fotoUrl} alt="Foto" className="w-full h-full object-cover" />
+        : <span className="text-gray-400 text-3xl font-bold">{form.nome?.charAt(0) || '?'}</span>
+      }
+    </div>
+    <div>
+      <label className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1">Foto do Aluno</label>
+      <label className={`cursor-pointer inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors ${uploadingFoto ? 'opacity-50' : ''}`}>
+        {uploadingFoto ? 'Enviando...' : '📷 Escolher foto'}
+        <input type="file" accept="image/*" onChange={handleFotoChange} className="hidden" disabled={isReadOnly || uploadingFoto} />
+      </label>
+      <p className="text-xs text-gray-400 mt-1">JPG ou PNG, máx. 2MB. Salvo no Google Drive.</p>
+    </div>
+  </div>
+</div>
 
       {/* ── SEÇÃO 4: Responsável Legal (menores de 18) ──────── */}
       {eMenorDeIdade && (
