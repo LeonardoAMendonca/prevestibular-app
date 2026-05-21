@@ -4,24 +4,30 @@ import { useSession, signIn, signOut } from 'next-auth/react';
 
 export type UserRole = 'ADMIN' | 'COORDENAÇÃO' | 'MONITOR' | 'INSPETOR';
 
-// ─── Usuário do sistema — campos completos (CIPOP) ────────────
 export interface PjuUser {
-  // Acesso
-  email: string;
-  role: UserRole;
-  status: string;
-  dataIngresso: string;
-  // Dados pessoais
-  nome: string;
+  email: string; role: UserRole; status: string; dataIngresso: string;
+  nome: string; cpf: string; rg: string; dataNascimento: string; nacionalidade: string; fotoUrl: string;
+  telefoneWhatsapp: string; telefoneSecundario: string;
+  cep: string; endereco: string; numero: string; complemento: string; bairro: string; cidade: string; estado: string;
+  disciplina: string; instituicaoEnsino: string; curso: string; periodo: string;
+  banco: string; agencia: string; conta: string; tipoConta: string; pix: string;
+  contatoEmergenciaNome: string; contatoEmergenciaTelefone: string; contatoEmergenciaParentesco: string;
+}
+
+export interface Student {
+  // Identificação — OBRIGATÓRIOS
   cpf: string;
-  rg: string;
+  nome: string;
+  nomeMae: string;          // NOVO — obrigatório
+  email: string;
   dataNascimento: string;
-  nacionalidade: string;
-  fotoUrl: string;
+  dataInscricao: string;
+
   // Contato
   telefoneWhatsapp: string;
   telefoneSecundario: string;
-  // Endereço
+
+  // Endereço — OBRIGATÓRIOS: cep, endereco, numero, bairro, cidade
   cep: string;
   endereco: string;
   numero: string;
@@ -29,44 +35,58 @@ export interface PjuUser {
   bairro: string;
   cidade: string;
   estado: string;
-  // Acadêmico / Profissional
-  disciplina: string;
-  instituicaoEnsino: string;
-  curso: string;
-  periodo: string;
-  // Dados bancários
+
+  // Condição Socioeconômica
+  identidadeRacial: string;
+  identidadeGenero: string;
+  areaRiscoAmbiental: string;
+  areaRiscoSeguranca: string;
+  tipoMoradia: string;
+  tratamentoEsgoto: string;
+  quantidadeMoradores: string;
+  rendaFamiliar: string;    // OBRIGATÓRIO > 0
+  rendaPerCapita: string;
+  concluiuEnsinoMedio: string;
+  anoConclusaoEnsinoMedio: string;
+  serieAtual: string;
+  tipoEscola: string;
+  temFilhos: string;
+  quantidadeFilhos: string;
+
+  // Saúde
+  pessoaComDeficiencia: string;
+  qualDeficiencia: string;
+  tipoSanguineo: string;
+  possuiAlergia: string;
+  qualAlergia: string;
+  usaMedicamento: string;
+  qualMedicamento: string;
+
+  // Emergência
+  contatoEmergencia1Nome: string;
+  contatoEmergencia1Telefone: string;
+  contatoEmergencia1Parentesco: string;
+  contatoEmergencia2Nome: string;
+  contatoEmergencia2Telefone: string;
+  contatoEmergencia2Parentesco: string;
+
+  // Dados bancários — OBRIGATÓRIOS: banco, agencia, contaCorrente
   banco: string;
   agencia: string;
-  conta: string;
+  contaCorrente: string;    // NOVO — obrigatório
   tipoConta: string;
   pix: string;
-  // Emergência
-  contatoEmergenciaNome: string;
-  contatoEmergenciaTelefone: string;
-  contatoEmergenciaParentesco: string;
-}
 
-// ─── Aluno ───────────────────────────────────────────────────
-export interface Student {
-  cpf: string; nome: string; email: string; dataNascimento: string; dataInscricao: string;
-  telefoneWhatsapp: string; telefoneSecundario: string;
-  cep: string; endereco: string; numero: string; complemento: string;
-  bairro: string; cidade: string; estado: string;
-  identidadeRacial: string; identidadeGenero: string;
-  areaRiscoAmbiental: string; areaRiscoSeguranca: string;
-  tipoMoradia: string; tratamentoEsgoto: string;
-  quantidadeMoradores: string; rendaFamiliar: string; rendaPerCapita: string;
-  concluiuEnsinoMedio: string; anoConclusaoEnsinoMedio: string;
-  serieAtual: string; tipoEscola: string;
-  temFilhos: string; quantidadeFilhos: string;
-  pessoaComDeficiencia: string; qualDeficiencia: string;
-  tipoSanguineo: string; possuiAlergia: string; qualAlergia: string;
-  usaMedicamento: string; qualMedicamento: string;
-  contatoEmergencia1Nome: string; contatoEmergencia1Telefone: string; contatoEmergencia1Parentesco: string;
-  contatoEmergencia2Nome: string; contatoEmergencia2Telefone: string; contatoEmergencia2Parentesco: string;
-  responsavelNome: string; responsavelRG: string; responsavelCPF: string;
-  responsavelNacionalidade: string; responsavelTelefone: string;
-  fotoUrl: string; statusMatricula: string;
+  // Responsável legal (menores)
+  responsavelNome: string;
+  responsavelRG: string;
+  responsavelCPF: string;
+  responsavelNacionalidade: string;
+  responsavelTelefone: string;
+
+  // Sistema
+  fotoUrl: string;
+  statusMatricula: string;
 }
 
 interface AuthContextValue {
@@ -115,7 +135,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     manageUsers:   currentUser ? currentUser.role === 'ADMIN' : false,
     viewAll:       currentUser ? ['ADMIN','COORDENAÇÃO'].includes(currentUser.role) : false,
   };
-
   const refreshData = useCallback(async () => {
     if (session?.user?.email) await fetchData(session.user.email);
   }, [session, fetchData]);
@@ -127,7 +146,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     logout: () => { signOut(); setCurrentUser(null); setStudents([]); setAllUsers([]); },
     refreshData, can,
   };
-
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
