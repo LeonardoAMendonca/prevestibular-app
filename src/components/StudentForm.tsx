@@ -43,16 +43,12 @@ const EMPTY: Partial<Student> = {
 const REQUIRED_FIELDS: { field: keyof Student; label: string; check?: (v: string) => boolean }[] = [
   { field: 'cpf',          label: 'CPF' },
   { field: 'nome',         label: 'Nome Completo' },
-  { field: 'nomeMae',      label: 'Nome Completo da Mãe' },
   { field: 'email',        label: 'E-mail' },
   { field: 'dataNascimento', label: 'Data de Nascimento' },
   { field: 'endereco',     label: 'Endereço (Logradouro)' },
   { field: 'numero',       label: 'Número do endereço' },
   { field: 'bairro',       label: 'Bairro' },
   { field: 'cidade',       label: 'Cidade' },
-  { field: 'banco',        label: 'Banco' },
-  { field: 'agencia',      label: 'Agência bancária' },
-  { field: 'contaCorrente',label: 'Conta Corrente' },
   {
     field: 'rendaFamiliar',
     label: 'Renda Familiar (deve ser maior que zero)',
@@ -233,7 +229,7 @@ export default function StudentForm({ initialData, mode }: Props) {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <Field label="CPF" name="cpf" required value={form.cpf??''} onChange={(_,v)=>handleCpf(v)} disabled={mode==='edit'} placeholder="000.000.000-00" error={fe('cpf')} />
           <Field label="Nome Completo" name="nome" required value={form.nome??''} onChange={handleChange} disabled={isReadOnly} placeholder="Nome como no documento" span={2} error={fe('nome')} />
-          <Field label="Nome Completo da Mãe" name="nomeMae" required value={form.nomeMae??''} onChange={handleChange} disabled={isReadOnly} placeholder="Nome completo da mãe" span={2} error={fe('nomeMae')} />
+          <Field label="Nome Completo da Mãe" name="nomeMae" value={form.nomeMae??''} onChange={handleChange} disabled={isReadOnly} placeholder="Nome completo da mãe" span={2}/>
           <Field label="Data de Nascimento" name="dataNascimento" type="date" required value={form.dataNascimento??''} onChange={handleChange} disabled={isReadOnly} error={fe('dataNascimento')} />
           <Field label="E-mail" name="email" type="email" required value={form.email??''} onChange={handleChange} disabled={isReadOnly} placeholder="email@exemplo.com" span={2} error={fe('email')} />
           <Field label="WhatsApp" name="telefoneWhatsapp" value={form.telefoneWhatsapp??''} onChange={(_,v)=>handlePhone('telefoneWhatsapp',v)} disabled={isReadOnly} placeholder="(00) 00000-0000" />
@@ -297,14 +293,14 @@ export default function StudentForm({ initialData, mode }: Props) {
 
       {/* 4 — Dados Bancários */}
       <div>
-        <SectionTitle number="4" title="Dados Bancários" required />
+        <SectionTitle number="4" title="Dados Bancários"/>
         <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 mb-4">
           <p className="text-xs text-amber-700">Necessário para prestação de contas e recebimento de auxílios.</p>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <Field label="Banco" name="banco" required value={form.banco??''} onChange={handleChange} disabled={isReadOnly} options={BANCOS} error={fe('banco')} />
-          <Field label="Agência" name="agencia" required value={form.agencia??''} onChange={handleChange} disabled={isReadOnly} placeholder="0000" error={fe('agencia')} />
-          <Field label="Conta Corrente" name="contaCorrente" required value={form.contaCorrente??''} onChange={handleChange} disabled={isReadOnly} placeholder="00000-0" error={fe('contaCorrente')} />
+          <Field label="Banco" name="banco" value={form.banco??''} onChange={handleChange} disabled={isReadOnly} options={BANCOS}/>
+          <Field label="Agência" name="agencia" value={form.agencia??''} onChange={handleChange} disabled={isReadOnly} placeholder="0000"/>
+          <Field label="Conta Corrente" name="contaCorrente" value={form.contaCorrente??''} onChange={handleChange} disabled={isReadOnly} placeholder="00000-0"/>
           <Field label="Tipo de Conta" name="tipoConta" value={form.tipoConta??''} onChange={handleChange} disabled={isReadOnly} options={['Conta Corrente','Conta Poupança','Conta de Pagamento']} />
           <Field label="Chave PIX" name="pix" value={form.pix??''} onChange={handleChange} disabled={isReadOnly} placeholder="CPF, e-mail, telefone ou chave aleatória" span={2} />
         </div>
