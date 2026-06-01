@@ -25,7 +25,7 @@ const EMPTY_USER: Partial<PjuUser> = {
 const ROLE_DESC: Record<string, string> = {
     ADMIN: 'Acesso total — gerencia usuários, alunos e sistema',
     COORDENAÇÃO: 'Cadastra e edita alunos, acessa relatórios',
-    MONITOR: 'Registra presença e visualiza dados dos alunos',
+    'PROFESSOR/MONITOR': 'Registra presença e visualiza dados dos alunos',
     INSPETOR: 'Apenas visualiza dados, sem edição',
 };
 
@@ -218,7 +218,7 @@ export default function UserForm({ user, onClose, onSuccess }: Props) {
                         Perfil (Role) <span className="text-red-400">*</span>
                     </label>
                     <div className="grid grid-cols-2 gap-2">
-                        {(['ADMIN', 'COORDENAÇÃO', 'MONITOR', 'INSPETOR'] as UserRole[]).map(r => (
+                        {(['ADMIN', 'COORDENAÇÃO', 'PROFESSOR/MONITOR', 'INSPETOR'] as UserRole[]).map(r => (
                             <button key={r} type="button"
                                 onClick={() => handleChange('role', r)}
                                 className={`text-left px-3 py-2.5 rounded-xl border text-sm transition-all ${form.role === r

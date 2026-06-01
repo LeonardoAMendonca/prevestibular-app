@@ -15,14 +15,14 @@ import UserForm from '@/components/UserForm';
 import Link from 'next/link';
 
 const ROLE_BADGE: Record<string, string> = {
-  ADMIN:       'bg-purple-100 text-purple-700',
+  ADMIN: 'bg-purple-100 text-purple-700',
   COORDENAÇÃO: 'bg-blue-100 text-blue-700',
-  MONITOR:     'bg-green-100 text-green-700',
-  INSPETOR:    'bg-orange-100 text-orange-700',
+  'PROFESSOR/MONITOR': 'bg-green-100 text-green-700',
+  INSPETOR: 'bg-orange-100 text-orange-700',
 };
 
 const ROLE_ICON: Record<string, string> = {
-  ADMIN: '👑', COORDENAÇÃO: '📋', MONITOR: '👁️', INSPETOR: '🔍',
+  ADMIN: '👑', COORDENAÇÃO: '📋', 'PROFESSOR/MONITOR': '👁️', INSPETOR: '🔍',
 };
 
 export default function UsuariosPage() {
@@ -43,7 +43,7 @@ export default function UsuariosPage() {
 
   useEffect(() => {
     if (!isLoading && !currentUser) router.replace('/login');
-    if (!isLoading && currentUser && !can.manageUsers) router.replace('/dashboard');
+    if (!isLoading && currentUser && !can('GERENCIAR_USUARIOS')) router.replace('/dashboard');
   }, [isLoading, currentUser, can, router]);
 
   function abrirNovo() {
@@ -84,7 +84,7 @@ export default function UsuariosPage() {
         u.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         u.cpf?.includes(searchTerm) ||
         u.disciplina?.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchRole   = !filtroRole   || u.role === filtroRole;
+      const matchRole = !filtroRole || u.role === filtroRole;
       const matchStatus = !filtroStatus || u.status === filtroStatus;
       return matchSearch && matchRole && matchStatus;
     });
@@ -92,11 +92,11 @@ export default function UsuariosPage() {
 
   // Contadores por role
   const counters = useMemo(() => ({
-    ADMIN:       allUsers.filter(u => u.role === 'ADMIN').length,
+    ADMIN: allUsers.filter(u => u.role === 'ADMIN').length,
     COORDENAÇÃO: allUsers.filter(u => u.role === 'COORDENAÇÃO').length,
-    MONITOR:     allUsers.filter(u => u.role === 'MONITOR').length,
-    INSPETOR:    allUsers.filter(u => u.role === 'INSPETOR').length,
-    inativos:    allUsers.filter(u => u.status === 'inativo').length,
+    'PROFESSOR/MONITOR': allUsers.filter(u => u.role === 'PROFESSOR/MONITOR').length,
+    INSPETOR: allUsers.filter(u => u.role === 'INSPETOR').length,
+    inativos: allUsers.filter(u => u.status === 'inativo').length,
   }), [allUsers]);
 
   function calcularIdade(dataNascimento: string): string {
@@ -145,11 +145,11 @@ export default function UsuariosPage() {
         {/* Cards de resumo */}
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-8">
           {[
-            { role: 'ADMIN',       count: counters.ADMIN,       icon: '👑', cor: 'border-purple-200 bg-purple-50' },
+            { role: 'ADMIN', count: counters.ADMIN, icon: '👑', cor: 'border-purple-200 bg-purple-50' },
             { role: 'COORDENAÇÃO', count: counters.COORDENAÇÃO, icon: '📋', cor: 'border-blue-200 bg-blue-50' },
-            { role: 'MONITOR',     count: counters.MONITOR,     icon: '👁️', cor: 'border-green-200 bg-green-50' },
-            { role: 'INSPETOR',    count: counters.INSPETOR,    icon: '🔍', cor: 'border-orange-200 bg-orange-50' },
-            { role: 'Inativos',    count: counters.inativos,    icon: '🚫', cor: 'border-gray-200 bg-gray-50' },
+            { role: 'PROFESSOR/MONITOR', count: counters['PROFESSOR/MONITOR'], icon: '👁️', cor: 'border-green-200 bg-green-50' },
+            { role: 'INSPETOR', count: counters.INSPETOR, icon: '🔍', cor: 'border-orange-200 bg-orange-50' },
+            { role: 'Inativos', count: counters.inativos, icon: '🚫', cor: 'border-gray-200 bg-gray-50' },
           ].map(({ role, count, icon, cor }) => (
             <button
               key={role}
@@ -157,10 +157,9 @@ export default function UsuariosPage() {
                 if (role === 'Inativos') { setFiltroStatus('inativo'); setFiltroRole(''); }
                 else { setFiltroRole(filtroRole === role ? '' : role); setFiltroStatus(''); }
               }}
-              className={`rounded-xl border-2 p-4 text-left transition-all hover:shadow-sm ${cor} ${
-                (filtroRole === role || (role === 'Inativos' && filtroStatus === 'inativo'))
+              className={`rounded-xl border-2 p-4 text-left transition-all hover:shadow-sm ${cor} ${(filtroRole === role || (role === 'Inativos' && filtroStatus === 'inativo'))
                   ? 'ring-2 ring-blue-400 ring-offset-1' : ''
-              }`}
+                }`}
             >
               <div className="flex items-center justify-between mb-1">
                 <span className="text-lg">{icon}</span>
@@ -186,7 +185,7 @@ export default function UsuariosPage() {
             className="border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
           >
             <option value="">Todos os perfis</option>
-            {['ADMIN','COORDENAÇÃO','MONITOR','INSPETOR'].map(r => (
+            {['ADMIN', 'COORDENAÇÃO', 'PROFESSOR/MONITOR', 'INSPETOR'].map(r => (
               <option key={r} value={r}>{r}</option>
             ))}
           </select>
@@ -289,11 +288,10 @@ export default function UsuariosPage() {
                       {user.email !== currentUser.email && (
                         <button
                           onClick={() => setModalStatus(user)}
-                          className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors border ${
-                            user.status === 'ativo'
+                          className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors border ${user.status === 'ativo'
                               ? 'text-red-500 bg-red-50 hover:bg-red-100 border-red-200'
                               : 'text-green-600 bg-green-50 hover:bg-green-100 border-green-200'
-                          }`}
+                            }`}
                         >
                           {user.status === 'ativo' ? 'Desativar' : 'Ativar'}
                         </button>
@@ -353,9 +351,8 @@ export default function UsuariosPage() {
       {modalStatus && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
           <div className="bg-white rounded-2xl shadow-xl p-8 max-w-sm w-full text-center">
-            <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 ${
-              modalStatus.status === 'ativo' ? 'bg-red-100' : 'bg-green-100'
-            }`}>
+            <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 ${modalStatus.status === 'ativo' ? 'bg-red-100' : 'bg-green-100'
+              }`}>
               <span className="text-xl">{modalStatus.status === 'ativo' ? '🚫' : '✅'}</span>
             </div>
             <h3 className="text-base font-bold text-gray-800 mb-2">
@@ -379,11 +376,10 @@ export default function UsuariosPage() {
               <button
                 onClick={handleToggleStatus}
                 disabled={alterandoStatus}
-                className={`flex-1 px-4 py-2.5 text-white text-sm font-semibold rounded-xl disabled:opacity-50 ${
-                  modalStatus.status === 'ativo'
+                className={`flex-1 px-4 py-2.5 text-white text-sm font-semibold rounded-xl disabled:opacity-50 ${modalStatus.status === 'ativo'
                     ? 'bg-red-600 hover:bg-red-700'
                     : 'bg-green-600 hover:bg-green-700'
-                }`}
+                  }`}
               >
                 {alterandoStatus ? 'Aguarde...' : modalStatus.status === 'ativo' ? 'Sim, desativar' : 'Sim, ativar'}
               </button>

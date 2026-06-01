@@ -18,7 +18,7 @@ export default function NovoAlunoPage() {
 
   useEffect(() => {
     if (!isLoading && !currentUser) router.replace('/login');
-    if (!isLoading && currentUser && !can.writeStudents) router.replace('/dashboard');
+    if (!isLoading && currentUser && !can('EDITAR_ALUNOS')) router.replace('/dashboard');
   }, [isLoading, currentUser, can, router]);
 
   if (isLoading || !currentUser) {

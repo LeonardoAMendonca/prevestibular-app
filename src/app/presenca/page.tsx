@@ -2,7 +2,7 @@
 
 // ============================================================
 //  ARQUIVO: src/app/presenca/page.tsx
-//  Atualizado: painel de observações permanentes por aluno
+//  Atualizado: Filtro dinâmico por Linha do Tempo (Inscrição e Inativação)
 // ============================================================
 
 import { useAuth } from '@/contexts/AuthContext';
@@ -57,7 +57,6 @@ export default function PresencaPage() {
 
   useEffect(() => {
     if (!isLoading && !currentUser) router.replace('/login');
-    if (!isLoading && currentUser && currentUser.role === 'INSPETOR') router.replace('/dashboard');
   }, [isLoading, currentUser, router]);
 
   const carregarRegistrosDaData = useCallback(async (dataSelecionada: string) => {
@@ -114,7 +113,29 @@ export default function PresencaPage() {
     finally { setSalvandoObs(false); }
   }
 
-  const alunosAtivos = useMemo(() => students.filter(s => s.statusMatricula === 'ativo'), [students]);
+  // ── FILTRO DINÂMICO DE LINHA DO TEMPO (Inscrição e Inativação) ──
+  const alunosAtivos = useMemo(() => {
+    return students.filter(s => {
+      // SALVAGUARDA HISTÓRICA: Se já existe chamada salva para esse aluno neste dia,
+      // ele DEVE aparecer na lista, independente das regras de datas do cadastro.
+      const temPresencaSalva = !!registros[s.cpf];
+      if (temPresencaSalva) return true;
+
+      // Se o aluno não tiver data de inscrição cadastrada, não exibe por segurança
+      if (!s.dataInscricao) return false;
+
+      // 1. O aluno já havia se inscrito até a data selecionada?
+      const jaEstavaInscrito = s.dataInscricao <= data;
+
+      // 2. O aluno ainda continuava ativo na data selecionada?
+      // Se o status atual for 'ativo', ele está elegível.
+      // Se estiver 'inativo' hoje, ele só aparece se a data selecionada for menor ou igual à data de inativação.
+      const dataInativacao = (s as any).dataInativacao;
+      const aindaEstavaAtivo = s.statusMatricula === 'ativo' || (dataInativacao ? data <= dataInativacao : false);
+
+      return jaEstavaInscrito && aindaEstavaAtivo;
+    });
+  }, [students, data, registros]); // 'registros' e 'data' adicionados para recalcular com as mudanças de estado
 
   function handleClickStatus(student: Student, status: StatusPresenca) {
     setFeedback(null);
@@ -135,7 +156,7 @@ export default function PresencaPage() {
 
   function handleMarcarTodos(status: StatusPresenca) {
     if (status === 'falta_justificada') return;
-    const novos: Record<string, RegistroLocal> = {};
+    const novos: Record<string, RegistroLocal> = { ...registros };
     alunosAtivos.forEach(s => { novos[s.cpf] = { status }; });
     setRegistros(novos);
     setFeedback(null);
@@ -147,7 +168,7 @@ export default function PresencaPage() {
       presente: vals.filter(v => v.status === 'presente').length,
       falta: vals.filter(v => v.status === 'falta').length,
       falta_justificada: vals.filter(v => v.status === 'falta_justificada').length,
-      naoMarcados: alunosAtivos.length - vals.length,
+      naoMarcados: Math.max(0, alunosAtivos.length - vals.length),
     };
   }, [registros, alunosAtivos]);
 
@@ -192,7 +213,7 @@ export default function PresencaPage() {
           <div className="flex items-center gap-3">
             <Link href="/dashboard" className="text-gray-400 hover:text-gray-600 text-sm">← Dashboard</Link>
             <span className="text-gray-200">/</span>
-            <h1 className="text-gray-800 font-semibold text-sm">Controle de Presença</h1>
+            <h1 className="text-gray-800 font-semibold text-sm">Presença</h1>
           </div>
           <button onClick={handleSalvar} disabled={isSaving || carregandoData || Object.keys(registros).length === 0}
             className="px-5 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-40 transition-colors">
@@ -251,54 +272,60 @@ export default function PresencaPage() {
             <div className="text-center py-16"><div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" /><p className="text-gray-400 text-sm">Carregando...</p></div>
           ) : (
             <div className="divide-y divide-gray-50">
-              {alunosAtivos.map(student => {
-                const registro = registros[student.cpf];
-                const statusAtual = registro?.status;
-                return (
-                  <div key={student.cpf} className={`px-4 py-3 transition-colors ${
-                    statusAtual === 'presente' ? 'bg-green-50' : statusAtual === 'falta' ? 'bg-red-50' :
-                    statusAtual === 'falta_justificada' ? 'bg-yellow-50' : 'hover:bg-gray-50'
-                  }`}>
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-blue-100 text-blue-600 font-bold text-sm flex items-center justify-center flex-shrink-0">
-                        {student.nome?.charAt(0).toUpperCase()}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-800 truncate">{student.nome}</p>
-                        <p className="text-xs text-gray-400 font-mono">{student.cpf}</p>
-                      </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        {/* Botão observações */}
-                        <button onClick={() => abrirObservacoes(student)}
-                          className="px-2 py-1.5 text-xs font-medium text-purple-600 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors border border-purple-200"
-                          title="Ver/adicionar observações">
-                          📝 Obs.
-                        </button>
-                        {/* Botões de status */}
-                        {(Object.keys(STATUS_CONFIG) as StatusPresenca[]).map(s => (
-                          <button key={s} onClick={() => handleClickStatus(student, s)}
-                            className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-all ${
-                              statusAtual === s
-                                ? `${STATUS_CONFIG[s].bg} ${STATUS_CONFIG[s].cor} border-current font-semibold`
-                                : 'border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-600'
-                            }`}>
-                            {STATUS_CONFIG[s].label}
+              {alunosAtivos.length === 0 ? (
+                <div className="text-center py-12 text-gray-400 text-sm italic">
+                  Nenhum aluno ativo matriculado nesta data ou correspondente à busca.
+                </div>
+              ) : (
+                alunosAtivos.map(student => {
+                  const registro = registros[student.cpf];
+                  const statusAtual = registro?.status;
+                  return (
+                    <div key={student.cpf} className={`px-4 py-3 transition-colors ${
+                      statusAtual === 'presente' ? 'bg-green-50' : statusAtual === 'falta' ? 'bg-red-50' :
+                      statusAtual === 'falta_justificada' ? 'bg-yellow-50' : 'hover:bg-gray-50'
+                    }`}>
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-full bg-blue-100 text-blue-600 font-bold text-sm flex items-center justify-center flex-shrink-0">
+                          {student.nome?.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-800 truncate">{student.nome}</p>
+                          <p className="text-xs text-gray-400 font-mono">{student.cpf}</p>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          {/* Botão observações */}
+                          <button onClick={() => abrirObservacoes(student)}
+                            className="px-2 py-1.5 text-xs font-medium text-purple-600 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors border border-purple-200"
+                            title="Ver/adicionar observações">
+                            📝 Obs.
                           </button>
-                        ))}
-                      </div>
-                    </div>
-                    {statusAtual === 'falta_justificada' && registro?.justificativa && (
-                      <div className="mt-2 ml-12 flex items-start gap-2">
-                        <div className="bg-yellow-100 border border-yellow-200 rounded-lg px-3 py-2 flex-1 flex items-start justify-between gap-2">
-                          <p className="text-xs text-yellow-800 italic">"{registro.justificativa}"</p>
-                          <button onClick={() => handleClickStatus(student, 'falta_justificada')}
-                            className="text-yellow-600 hover:text-yellow-800 text-xs underline whitespace-nowrap">Editar</button>
+                          {/* Botões de status */}
+                          {(Object.keys(STATUS_CONFIG) as StatusPresenca[]).map(s => (
+                            <button key={s} onClick={() => handleClickStatus(student, s)}
+                              className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-all ${
+                                statusAtual === s
+                                  ? `${STATUS_CONFIG[s].bg} ${STATUS_CONFIG[s].cor} border-current font-semibold`
+                                  : 'border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-600'
+                              }`}>
+                              {STATUS_CONFIG[s].label}
+                            </button>
+                          ))}
                         </div>
                       </div>
-                    )}
-                  </div>
-                );
-              })}
+                      {statusAtual === 'falta_justificada' && registro?.justificativa && (
+                        <div className="mt-2 ml-12 flex items-start gap-2">
+                          <div className="bg-yellow-100 border border-yellow-200 rounded-lg px-3 py-2 flex-1 flex items-start justify-between gap-2">
+                            <p className="text-xs text-yellow-800 italic">"{registro.justificativa}"</p>
+                            <button onClick={() => handleClickStatus(student, 'falta_justificada')}
+                              className="text-yellow-600 hover:text-yellow-800 text-xs underline whitespace-nowrap">Editar</button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
             </div>
           )}
         </div>
