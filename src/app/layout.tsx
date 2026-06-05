@@ -1,8 +1,5 @@
 // ============================================================
 //  ARQUIVO: src/app/layout.tsx
-//  Propósito: Layout raiz do app. É um Server Component por
-//  padrão — por isso NÃO pode conter hooks ou Context direto.
-//  Delegamos isso ao <Providers />.
 // ============================================================
 
 import type { Metadata } from 'next';
@@ -21,8 +18,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="pt-BR">
-      <body>
-        {/* Providers é um Client Component e pode usar hooks/Context */}
+      <body className="antialiased bg-slate-50 text-slate-900">
         <Providers>
           {children}
         </Providers>

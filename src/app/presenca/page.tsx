@@ -2,7 +2,7 @@
 
 // ============================================================
 //  ARQUIVO: src/app/presenca/page.tsx
-//  Atualizado: Filtro dinâmico por Linha do Tempo (Inscrição e Inativação)
+//  Atualizado: Implementação do Seletor de Aula (Opção 1)
 // ============================================================
 
 import { useAuth } from '@/contexts/AuthContext';
@@ -39,6 +39,7 @@ export default function PresencaPage() {
 
   const hoje = new Date().toISOString().split('T')[0];
   const [data, setData] = useState(hoje);
+  const [aula, setAula] = useState('Aula 1'); // Novo estado para controlar a aula
   const [registros, setRegistros] = useState<Record<string, RegistroLocal>>({});
   const [carregandoData, setCarregandoData] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -59,28 +60,33 @@ export default function PresencaPage() {
     if (!isLoading && !currentUser) router.replace('/login');
   }, [isLoading, currentUser, router]);
 
-  const carregarRegistrosDaData = useCallback(async (dataSelecionada: string) => {
+  // Função atualizada para receber também a aula selecionada
+  const carregarRegistrosDaData = useCallback(async (dataSelecionada: string, aulaSelecionada: string) => {
     if (!currentUser) return;
     setCarregandoData(true);
     setRegistros({});
     setFeedback(null);
     try {
-      const res = await postToGAS('GET_ATTENDANCE_BY_DATE', { data: dataSelecionada }, currentUser.email);
+      const res = await postToGAS('GET_ATTENDANCE_BY_DATE', { data: dataSelecionada, aula: aulaSelecionada }, currentUser.email);
       const existentes: Record<string, RegistroLocal> = {};
       (res.registros ?? []).forEach((r: { cpf_aluno: string; status: StatusPresenca; justificativa?: string }) => {
         existentes[r.cpf_aluno] = { status: r.status, justificativa: r.justificativa || '' };
       });
       setRegistros(existentes);
       if (Object.keys(existentes).length > 0) {
-        setFeedback({ type: 'success', message: `📋 ${Object.keys(existentes).length} registro(s) carregados para ${formatarData(dataSelecionada)}.` });
+        setFeedback({ 
+          type: 'success', 
+          message: `📋 ${Object.keys(existentes).length} registro(s) carregados para ${formatarData(dataSelecionada)} (${aulaSelecionada}).` 
+        });
       }
-    } catch { /* data sem registros */ }
+    } catch { /* data/aula sem registros */ }
     finally { setCarregandoData(false); }
   }, [currentUser]);
 
+  // Dispara o carregamento sempre que a data OU a aula mudarem
   useEffect(() => {
-    if (currentUser) carregarRegistrosDaData(data);
-  }, [data, currentUser, carregarRegistrosDaData]);
+    if (currentUser) carregarRegistrosDaData(data, aula);
+  }, [data, aula, currentUser, carregarRegistrosDaData]);
 
   // Carrega observações do aluno ao abrir o painel
   async function abrirObservacoes(student: Student) {
@@ -105,7 +111,6 @@ export default function PresencaPage() {
         observacao: novaObs.trim(),
         registrado_por: currentUser.email,
       }, currentUser.email);
-      // Recarrega observações
       const res = await postToGAS('GET_OBSERVATIONS', { cpf: obsAluno.cpf }, currentUser.email);
       setObservacoes(res.observacoes ?? []);
       setNovaObs('');
@@ -113,29 +118,21 @@ export default function PresencaPage() {
     finally { setSalvandoObs(false); }
   }
 
-  // ── FILTRO DINÂMICO DE LINHA DO TEMPO (Inscrição e Inativação) ──
+  // ── FILTRO DINÂMICO DE LINHA DO TEMPO ──
   const alunosAtivos = useMemo(() => {
     return students.filter(s => {
-      // SALVAGUARDA HISTÓRICA: Se já existe chamada salva para esse aluno neste dia,
-      // ele DEVE aparecer na lista, independente das regras de datas do cadastro.
       const temPresencaSalva = !!registros[s.cpf];
       if (temPresencaSalva) return true;
 
-      // Se o aluno não tiver data de inscrição cadastrada, não exibe por segurança
       if (!s.dataInscricao) return false;
 
-      // 1. O aluno já havia se inscrito até a data selecionada?
       const jaEstavaInscrito = s.dataInscricao <= data;
-
-      // 2. O aluno ainda continuava ativo na data selecionada?
-      // Se o status atual for 'ativo', ele está elegível.
-      // Se estiver 'inativo' hoje, ele só aparece se a data selecionada for menor ou igual à data de inativação.
       const dataInativacao = (s as any).dataInativacao;
       const aindaEstavaAtivo = s.statusMatricula === 'ativo' || (dataInativacao ? data <= dataInativacao : false);
 
       return jaEstavaInscrito && aindaEstavaAtivo;
     });
-  }, [students, data, registros]); // 'registros' e 'data' adicionados para recalcular com as mudanças de estado
+  }, [students, data, registros]);
 
   function handleClickStatus(student: Student, status: StatusPresenca) {
     setFeedback(null);
@@ -178,13 +175,18 @@ export default function PresencaPage() {
     if (marcados.length === 0) { setFeedback({ type: 'error', message: 'Marque ao menos um aluno.' }); return; }
     setIsSaving(true); setFeedback(null);
     try {
+      // Payload atualizado incluindo a coluna 'aula'
       const payload = marcados.map(s => ({
-        data, cpf_aluno: s.cpf, status: registros[s.cpf].status,
-        justificativa: registros[s.cpf].justificativa || '', registrado_por: currentUser.email,
+        data, 
+        cpf_aluno: s.cpf, 
+        aula, // <-- Inclusão da nova coluna estrutural
+        status: registros[s.cpf].status,
+        justificativa: registros[s.cpf].justificativa || '', 
+        registrado_por: currentUser.email,
       }));
       await postToGAS('ADD_ATTENDANCE', { registros: payload }, currentUser.email);
-      setFeedback({ type: 'success', message: `✅ Presença de ${formatarData(data)} salva! ${marcados.length} aluno(s).` });
-      await carregarRegistrosDaData(data);
+      setFeedback({ type: 'success', message: `✅ Presença da ${aula} de ${formatarData(data)} salva! ${marcados.length} aluno(s).` });
+      await carregarRegistrosDaData(data, aula);
     } catch (err) {
       setFeedback({ type: 'error', message: err instanceof Error ? err.message : 'Erro ao salvar.' });
     } finally { setIsSaving(false); }
@@ -229,15 +231,29 @@ export default function PresencaPage() {
           }`}>{feedback.message}</div>
         )}
 
-        {/* Data + contadores */}
+        {/* Data + Seletor de Aula + Contadores */}
         <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-            <div>
-              <label className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1">Data da Aula</label>
-              <input type="date" value={data} onChange={e => setData(e.target.value)}
-                className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-              {carregandoData && <p className="text-xs text-blue-500 mt-1">Carregando...</p>}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-6">
+            <div className="flex flex-wrap gap-4">
+              <div>
+                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1">Data da Aula</label>
+                <input type="date" value={data} onChange={e => setData(e.target.value)}
+                  className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
+              </div>
+              
+              {/* SELETOR DE AULA (Implementação Opção 1) */}
+              <div>
+                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide block mb-1">Tempo / Aula</label>
+                <select value={aula} onChange={e => setAula(e.target.value)}
+                  className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white font-medium text-gray-700">
+                  <option value="Aula 1">1º Tempo (Aula 1)</option>
+                  <option value="Aula 2">2º Tempo (Aula 2)</option>
+                </select>
+              </div>
             </div>
+
+            {carregandoData && <p className="text-xs text-blue-500 self-end mb-3">A carregar registros...</p>}
+
             <div className="flex flex-wrap gap-3 sm:ml-auto">
               {[
                 { k: 'presente', l: 'Presentes', c: 'bg-green-50 text-green-600' },
@@ -262,14 +278,14 @@ export default function PresencaPage() {
           <div className="flex gap-2">
             <button onClick={() => handleMarcarTodos('presente')} className="px-3 py-2 text-xs font-medium text-green-700 bg-green-100 rounded-lg hover:bg-green-200">✓ Todos presentes</button>
             <button onClick={() => handleMarcarTodos('falta')} className="px-3 py-2 text-xs font-medium text-red-700 bg-red-100 rounded-lg hover:bg-red-200">✗ Todos faltaram</button>
-            <button onClick={() => carregarRegistrosDaData(data)} className="px-3 py-2 text-xs font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200">↺</button>
+            <button onClick={() => carregarRegistrosDaData(data, aula)} className="px-3 py-2 text-xs font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200">↺</button>
           </div>
         </div>
 
         {/* Lista de alunos */}
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
           {carregandoData ? (
-            <div className="text-center py-16"><div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" /><p className="text-gray-400 text-sm">Carregando...</p></div>
+            <div className="text-center py-16"><div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" /><p className="text-gray-400 text-sm">A carregar...</p></div>
           ) : (
             <div className="divide-y divide-gray-50">
               {alunosAtivos.length === 0 ? (
@@ -333,7 +349,7 @@ export default function PresencaPage() {
         <div className="mt-6 flex justify-end">
           <button onClick={handleSalvar} disabled={isSaving || carregandoData || Object.keys(registros).length === 0}
             className="px-8 py-3 bg-green-600 text-white text-sm font-medium rounded-xl hover:bg-green-700 disabled:opacity-40 transition-colors">
-            {isSaving ? 'Salvando...' : `Salvar Presença de ${Object.keys(registros).length} aluno(s)`}
+            {isSaving ? 'Salvando...' : `Salvar Presença (${aula})`}
           </button>
         </div>
       </div>
@@ -363,7 +379,6 @@ export default function PresencaPage() {
       {obsAluno && (
         <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 px-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[85vh] flex flex-col">
-            {/* Header */}
             <div className="flex items-center justify-between p-6 border-b border-gray-100">
               <div>
                 <h3 className="font-bold text-gray-800">Observações</h3>
@@ -372,7 +387,6 @@ export default function PresencaPage() {
               <button onClick={() => setObsAluno(null)} className="text-gray-400 hover:text-gray-600 text-xl font-light">×</button>
             </div>
 
-            {/* Lista de observações */}
             <div className="flex-1 overflow-y-auto p-6 space-y-3">
               {loadingObs ? (
                 <div className="text-center py-8"><div className="w-5 h-5 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" /><p className="text-gray-400 text-sm">Carregando...</p></div>
@@ -396,10 +410,9 @@ export default function PresencaPage() {
               )}
             </div>
 
-            {/* Campo nova observação */}
             <div className="p-4 border-t border-gray-100">
               <textarea value={novaObs} onChange={e => setNovaObs(e.target.value)}
-                placeholder="Digite uma observação (ex: aluno foi à enfermaria, chegou atrasado, saiu mais cedo...)"
+                placeholder="Digite uma observação..."
                 rows={3}
                 className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 resize-none mb-3" />
               <button onClick={salvarObservacao} disabled={salvandoObs || !novaObs.trim()}

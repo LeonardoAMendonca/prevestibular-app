@@ -61,7 +61,7 @@ export function can(role: string | undefined, permission: Permission): boolean {
 // ─── Constantes de configuração pedagógica ───────────────────
 // Percentual máximo de faltas permitido antes de ser considerado
 // em risco. Altere aqui para mudar o critério em todo o sistema.
-export const LIMITE_FALTAS_PERCENT = 65; // 65% = máximo de faltas
+export const LIMITE_FALTAS_PERCENT = 60; // 60% = máximo de faltas
 
 // Quando o aluno está neste percentual ou acima, entra no alerta amarelo
-export const ALERTA_FALTAS_PERCENT = 50; // 50%+ = atenção
+export const ALERTA_FALTAS_PERCENT = 40; // 40%+ = atenção

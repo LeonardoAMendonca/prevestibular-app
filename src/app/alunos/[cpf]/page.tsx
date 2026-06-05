@@ -16,7 +16,8 @@ import Link from 'next/link';
 
 type Aba = 'dados' | 'presenca' | 'observacoes' | 'documentos';
 
-interface RegistroPresenca { data: string; status: string; justificativa?: string; registrado_por: string; }
+// 🔥 Interface Atualizada: Inserida a propriedade 'aula'
+interface RegistroPresenca { data: string; aula?: string; status: string; justificativa?: string; registrado_por: string; }
 interface Observacao { timestamp: string; observacao: string; registrado_por: string; }
 interface Documento {
   timestamp: string; tipo_documento: string; nome_arquivo: string;
@@ -137,13 +138,11 @@ export default function AlunoDetailPage() {
       let filename: string;
 
       if (file.type.startsWith('image/')) {
-        // Imagens: redimensiona para economizar espaço no Drive
         const result = await resizeAndEncodeImage(file, { maxWidth: 1200, maxHeight: 1600, quality: 0.88 });
         base64 = result.base64;
         mimeType = result.mimeType;
         filename = `${student.cpf.replace(/\D/g, '')}_${tipoSelecionado.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}.jpg`;
       } else {
-        // PDFs: envia como está
         base64 = await new Promise<string>((res, rej) => { const r = new FileReader(); r.onload = () => res((r.result as string).split(',')[1]); r.onerror = rej; r.readAsDataURL(file); });
         mimeType = file.type;
         filename = `${student.cpf.replace(/\D/g, '')}_${tipoSelecionado.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}.pdf`;
@@ -324,14 +323,19 @@ export default function AlunoDetailPage() {
                   <div className="overflow-hidden rounded-lg border border-gray-100">
                     <table className="w-full text-sm">
                       <thead className="bg-gray-50"><tr>
-                        <th className="text-left px-4 py-3 text-gray-500 font-medium text-xs uppercase tracking-wide">Data</th>
+                        {/* 🔥 Coluna da tabela atualizada para mostrar a aula */}
+                        <th className="text-left px-4 py-3 text-gray-500 font-medium text-xs uppercase tracking-wide">Data / Tempo</th>
                         <th className="text-left px-4 py-3 text-gray-500 font-medium text-xs uppercase tracking-wide">Status</th>
                         <th className="text-left px-4 py-3 text-gray-500 font-medium text-xs uppercase tracking-wide">Justificativa</th>
                       </tr></thead>
                       <tbody className="divide-y divide-gray-50">
-                        {[...presencas].sort((a, b) => b.data.localeCompare(a.data)).map((r, i) => (
+                        {/* 🔥 Ordenação adaptada para garantir consistência visual no histórico */}
+                        {[...presencas].sort((a, b) => b.data.localeCompare(a.data) || (a.aula || '').localeCompare(b.aula || '')).map((r, i) => (
                           <tr key={i} className="hover:bg-gray-50">
-                            <td className="px-4 py-3 font-medium text-gray-700 whitespace-nowrap">{formatarData(r.data)}</td>
+                            <td className="px-4 py-3 font-medium text-gray-700 whitespace-nowrap">
+                              {formatarData(r.data)} 
+                              <span className="text-gray-400 text-xs ml-1 font-normal">({r.aula || 'Aula 1'})</span>
+                            </td>
                             <td className="px-4 py-3"><span className={`px-2 py-1 rounded-full text-xs font-medium ${STATUS_PRESENCA[r.status]?.cor ?? 'bg-gray-100 text-gray-500'}`}>{STATUS_PRESENCA[r.status]?.label ?? r.status}</span></td>
                             <td className="px-4 py-3 text-xs">{r.justificativa ? <span className="italic text-yellow-700">"{r.justificativa}"</span> : <span className="text-gray-300">—</span>}</td>
                           </tr>

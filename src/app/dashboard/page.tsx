@@ -2,9 +2,8 @@
 
 // ============================================================
 //  ARQUIVO: src/app/dashboard/page.tsx
-//  Faltas calculadas por aluno considerando dataInscricao.
-//  Cada aluno só é avaliado pelas aulas ocorridas APÓS
-//  sua data de inscrição no sistema.
+//  Faltas calculadas por aluno considerando dataInscricao e
+//  ajustadas para o suporte de Múltiplas Aulas por dia (v1.5).
 // ============================================================
 
 import { useAuth } from '@/contexts/AuthContext';
@@ -15,8 +14,8 @@ import { LIMITE_FALTAS_PERCENT, ALERTA_FALTAS_PERCENT } from '@/lib/permissions'
 import Link from 'next/link';
 
 interface AttendanceSummary {
-  totalAulas: number;
-  datasAulas: string[];                           // lista de datas únicas yyyy-MM-dd
+  totalAulas: number;                             // Total de SESSÕES (ex: Aula 1 + Aula 2 = 2)
+  datasAulas: string[];                           // Lista de dias únicos no calendário
   porAluno: Record<string, {
     presentes: number;
     faltas: number;
@@ -30,7 +29,7 @@ interface StudentAlert {
   percentFaltas: number;
   faltas: number;
   justificadas: number;
-  totalAulasPossiveis: number;                    // aulas após a inscrição do aluno
+  totalAulasPossiveis: number;
   nivel: 'critico' | 'atencao';
 }
 
@@ -68,11 +67,14 @@ export default function DashboardPage() {
       .finally(() => setLoadingAttendance(false));
   }, [currentUser]);
 
-  // ── Alertas de faltas, corrigidos por dataInscricao ────────
+  // ── Alertas de faltas (Ajustado para Multiaulas) ────────
   const alertas = useMemo((): StudentAlert[] => {
     if (!attendanceSummary || !students.length) return [];
-    const { datasAulas, porAluno } = attendanceSummary;
+    const { datasAulas, porAluno, totalAulas } = attendanceSummary;
     if (!datasAulas?.length) return [];
+
+    // Média de sessões por dia (Ex: 10 sessões em 5 dias = 2 aulas/dia)
+    const mediaAulasPorDia = Math.max(1, Math.round(totalAulas / Math.max(datasAulas.length, 1)));
 
     return students
       .filter(s => s.statusMatricula === 'ativo')
@@ -80,24 +82,23 @@ export default function DashboardPage() {
         const cpfLimpo = s.cpf.replace(/\D/g, '');
         const stats = porAluno[cpfLimpo] ?? { presentes: 0, faltas: 0, justificadas: 0, total: 0 };
 
-        // Aulas que ocorreram na data de inscrição ou depois.
-        // Se dataInscricao não estiver preenchida, considera todas as aulas.
         const dataRef = s.dataInscricao && s.dataInscricao.trim()
           ? s.dataInscricao.trim()
-          : datasAulas[0]; // primeira aula registrada no sistema
+          : datasAulas[0]; 
 
-        const totalAulasPossiveis = datasAulas.filter(d => d >= dataRef).length;
+        // Dias úteis letivos após a matrícula
+        const diasPossiveis = datasAulas.filter(d => d >= dataRef).length;
+        
+        // Total projetado de aulas x Total real já avaliado (o maior vence para evitar % acima de 100)
+        const totalAulasPossiveis = Math.max(stats.total, diasPossiveis * mediaAulasPorDia);
 
-        // Aluno inscrito mais recentemente que qualquer aula → sem dados ainda
         if (totalAulasPossiveis === 0) return [];
 
-        // Faltas justificadas NÃO contam para o limite — só faltas simples
         const percentFaltas = Math.round((stats.faltas / totalAulasPossiveis) * 100);
 
         if (percentFaltas < ALERTA_FALTAS_PERCENT) return [];
 
-        const nivel: 'critico' | 'atencao' =
-          percentFaltas >= LIMITE_FALTAS_PERCENT ? 'critico' : 'atencao';
+        const nivel: 'critico' | 'atencao' = percentFaltas >= LIMITE_FALTAS_PERCENT ? 'critico' : 'atencao';
 
         return [{
           cpf: s.cpf, nome: s.nome, percentFaltas,
@@ -108,10 +109,11 @@ export default function DashboardPage() {
       .sort((a, b) => b.percentFaltas - a.percentFaltas);
   }, [attendanceSummary, students]);
 
-  // ── Taxa de frequência geral — também corrigida ─────────────
+  // ── Taxa de frequência geral (Ajustada para Multiaulas) ─────────────
   const taxaFrequencia = useMemo(() => {
     if (!attendanceSummary?.datasAulas?.length) return null;
-    const { datasAulas, porAluno } = attendanceSummary;
+    const { datasAulas, porAluno, totalAulas } = attendanceSummary;
+    const mediaAulasPorDia = Math.max(1, Math.round(totalAulas / Math.max(datasAulas.length, 1)));
 
     let totalPresentes = 0;
     let totalPossivel = 0;
@@ -122,9 +124,10 @@ export default function DashboardPage() {
         const cpfLimpo = s.cpf.replace(/\D/g, '');
         const stats = porAluno[cpfLimpo] ?? { presentes: 0, faltas: 0, justificadas: 0, total: 0 };
         const dataRef = s.dataInscricao?.trim() || datasAulas[0];
-        const possiveis = datasAulas.filter(d => d >= dataRef).length;
+        const diasPossiveis = datasAulas.filter(d => d >= dataRef).length;
+        
         totalPresentes += stats.presentes;
-        totalPossivel += possiveis;
+        totalPossivel += Math.max(stats.total, diasPossiveis * mediaAulasPorDia);
       });
 
     if (totalPossivel === 0) return null;
@@ -222,7 +225,7 @@ export default function DashboardPage() {
             sub={
               loadingAttendance ? 'Calculando...' :
                 attendanceSummary
-                  ? `${attendanceSummary.totalAulas} aula(s) — por data de inscrição`
+                  ? `${attendanceSummary.totalAulas} sessões em ${attendanceSummary.datasAulas.length} dia(s)`
                   : 'Sem dados de presença'
             }
             loading={loadingAttendance}
@@ -382,7 +385,7 @@ export default function DashboardPage() {
                 </div>
               </div>
               <p className="text-xs text-gray-400 mt-3 pt-3 border-t border-gray-200">
-                ℹ️ Cada aluno é avaliado apenas pelas aulas ocorridas após sua data de inscrição.
+                ℹ️ Cada aluno é avaliado pelas sessões de aulas ocorridas após sua inscrição.
                 Faltas justificadas não contam para o limite.
               </p>
             </div>
